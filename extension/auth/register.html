@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>AutoGrid - Registro</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Lalezar&display=swap" rel="stylesheet">
+  <title>AutoGrid Register</title>
+
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Register</h1>
+    </header>
+    <form id="registerForm">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="email" id="email" placeholder="Email" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="password" id="confirmPassword" placeholder="Confirm Password" required>
+      <button type="submit">Register</button>
+    </form>
+    <div class="links">
+      <a href="#" id="forgotPasswordLink">¿Has olvidado tu contraseña?</a><br>
+      <a href="login.html">¿Ya tienes cuenta? Inicia sesión</a>
+    </div>
+    <div class="message" id="registerMessage"></div>
+  </div>
+  <script type="module" src="register.js"></script>
+</body>
+</html>

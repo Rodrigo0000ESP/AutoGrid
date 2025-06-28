@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "AutoGrid Job Saver",
+  "version": "0.1.0",
+  "description": "Guarda ofertas de trabajo con un clic.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*",
+    "https://your-api.com/*"
+  ],
+  "action": {
+    "default_popup": "home/home.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Guardar oferta de trabajo (configura el atajo global en chrome://extensions/shortcuts)"
+    }
+  }
+}
+
