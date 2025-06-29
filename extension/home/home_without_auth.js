@@ -1,27 +1,65 @@
-import { isLoggedIn, logout } from "../Data/DataShareService.js";
+import { isLoggedIn, logout, saveJobOffer } from "../Data/DataShareService.js";
 
 
 document.addEventListener("DOMContentLoaded", function () {
     const app = document.getElementById("app");
     let saveBtn = null;
-    function simulateSaveOffer() {
+    async function handleSaveOffer() {
         if (isLoggedIn()) {
-            const message = document.createElement('div');
-            message.className = 'message success';
-            message.textContent = "✓ Offer saved successfully";
-            message.style.opacity = '0';
-            message.style.transition = 'opacity 0.3s';
-            
-            const container = document.querySelector('.container');
-            container.appendChild(message);
-            
-            setTimeout(() => { message.style.opacity = '1'; }, 10);
+            try {
+                // Obtener la pestaña activa
+                const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                
+                if (!tabs || tabs.length === 0) {
+                    showMessage("No active tab found", "error");
+                    return;
+                }
+                
+                const activeTab = tabs[0];
+                
+                // Obtener título y URL de la pestaña activa
+                const title = activeTab.title || "";
+                const url = activeTab.url || "";
+                
+                // Mostrar mensaje de carga
+                showMessage("Saving job offer...", "info");
+                
+                // Guardar la oferta con el HTML de la página
+                await saveJobOffer({ title, url });
+                
+                // Mostrar mensaje de éxito
+                showMessage("✓ Offer saved successfully", "success");
+            } catch (error) {
+                console.error("Error saving job offer:", error);
+                showMessage(`Error: ${error.message || "Could not save the offer"}`, "error");
+            }
+        } else {
+            alert("You must log in to save offers.");
+        }
+    }
+    
+    function showMessage(text, type = "success") {
+        // Eliminar mensajes anteriores
+        const existingMessages = document.querySelectorAll('.message');
+        existingMessages.forEach(msg => msg.remove());
+        
+        const message = document.createElement('div');
+        message.className = `message ${type}`;
+        message.textContent = text;
+        message.style.opacity = '0';
+        message.style.transition = 'opacity 0.3s';
+        
+        const container = document.querySelector('.container');
+        container.appendChild(message);
+        
+        setTimeout(() => { message.style.opacity = '1'; }, 10);
+        
+        // Solo desaparece automáticamente si es éxito o info
+        if (type === "success" || type === "info") {
             setTimeout(() => { 
                 message.style.opacity = '0'; 
                 setTimeout(() => message.remove(), 300);
             }, 2000);
-        } else {
-            alert("You must log in to save offers.");
         }
     }
     if (isLoggedIn()) {
@@ -44,7 +82,7 @@ document.addEventListener("DOMContentLoaded", function () {
             location.reload();
         };
         saveBtn = document.getElementById("saveBtn");
-        saveBtn.onclick = simulateSaveOffer;
+        saveBtn.onclick = handleSaveOffer;
         // Show instructions for configuring global shortcut
         document.getElementById('shortcutDisplay').textContent = '(Configure in settings)';
         // Link opens browser shortcuts configuration

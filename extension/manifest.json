@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "*://*.linkedin.com/*",
+    "http://localhost:8000/*",
     "https://your-api.com/*"
   ],
   "action": {
@@ -21,7 +22,8 @@
     }
   },
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "commands": {
     "_execute_action": {

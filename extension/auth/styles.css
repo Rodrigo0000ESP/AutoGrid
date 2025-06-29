@@ -21,6 +21,7 @@ body > .container {
   justify-content: center;
   align-items: center;
   padding: 20px 0;
+  position: relative;
 }
 
 .footer {
@@ -32,6 +33,40 @@ body > .container {
   color: #6b7280;
   padding-bottom: 10px;
   background: transparent;
+}
+
+/* Estilos para los mensajes de estado */
+.message {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 1000;
+  min-width: 200px;
+  text-align: center;
+}
+
+.message.success {
+  background-color: #d1fae5;
+  color: #065f46;
+  border-left: 4px solid #10b981;
+}
+
+.message.error {
+  background-color: #fee2e2;
+  color: #b91c1c;
+  border-left: 4px solid #ef4444;
+}
+
+.message.info {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  border-left: 4px solid #0ea5e9;
 }
 
 .container {
