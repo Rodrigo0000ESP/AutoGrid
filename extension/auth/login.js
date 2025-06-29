@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const errorDiv = document.getElementById("loginError");
 
     if (!form) {
-        console.error("No se encontró el formulario de login (loginForm)");
+        console.error("Login form not found (loginForm)");
         return;
     }
 
@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const password = form.elements["password"]?.value.trim() || "";
 
         if (!username || !password) {
-            errorDiv.textContent = "Por favor, completa usuario y contraseña.";
+            errorDiv.textContent = "Please complete username and password.";
             errorDiv.style.color = "red";
             return;
         }

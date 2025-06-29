@@ -3,12 +3,12 @@ import { isLoggedIn, logout } from "../Data/DataShareService.js";
 
 document.addEventListener("DOMContentLoaded", function () {
     const app = document.getElementById("app");
-    let guardarBtn = null;
-    function simulateGuardarOferta() {
+    let saveBtn = null;
+    function simulateSaveOffer() {
         if (isLoggedIn()) {
             const message = document.createElement('div');
             message.className = 'message success';
-            message.textContent = "✓ Oferta guardada correctamente";
+            message.textContent = "✓ Offer saved successfully";
             message.style.opacity = '0';
             message.style.transition = 'opacity 0.3s';
             
@@ -21,20 +21,20 @@ document.addEventListener("DOMContentLoaded", function () {
                 setTimeout(() => message.remove(), 300);
             }, 2000);
         } else {
-            alert("Debes iniciar sesión para guardar ofertas.");
+            alert("You must log in to save offers.");
         }
     }
     if (isLoggedIn()) {
         app.innerHTML = `
-            <div class="menu-autenticado">
+            <div class="menu-authenticated">
                 <h1>AutoGrid</h1>
-                <p>¡Bienvenido! Guarda tus ofertas favoritas con un solo clic.</p>
-                <button id="guardarBtn">Guardar oferta</button>
+                <p>Welcome! Save your favorite offers with a single click.</p>
+                <button id="saveBtn">Save offer</button>
                 <div>
-                    <button id="logoutBtn">Cerrar sesión</button>
+                    <button id="logoutBtn">Log out</button>
                 </div>
                 <div>
-                    <a href="#" id="configShortcutLink">Configurar atajo de teclado</a>
+                    <a href="#" id="configShortcutLink">Configure keyboard shortcut</a>
                     <span id="shortcutDisplay"></span>
                 </div>
             </div>
@@ -43,24 +43,24 @@ document.addEventListener("DOMContentLoaded", function () {
             logout();
             location.reload();
         };
-        guardarBtn = document.getElementById("guardarBtn");
-        guardarBtn.onclick = simulateGuardarOferta;
-        // Mostrar instrucciones para configurar shortcut global
-        document.getElementById('shortcutDisplay').textContent = '(Configura en ajustes)';
-        // Enlace abre la configuración de shortcuts del navegador
+        saveBtn = document.getElementById("saveBtn");
+        saveBtn.onclick = simulateSaveOffer;
+        // Show instructions for configuring global shortcut
+        document.getElementById('shortcutDisplay').textContent = '(Configure in settings)';
+        // Link opens browser shortcuts configuration
         document.getElementById('configShortcutLink').onclick = (e) => {
             e.preventDefault();
-            alert('Para configurar el atajo global:\n1. Abre chrome://extensions/shortcuts\n2. Busca AutoGrid\n3. Configura tu atajo preferido');
+            alert('To configure the global shortcut:\n1. Open chrome://extensions/shortcuts\n2. Find AutoGrid\n3. Configure your preferred shortcut');
         };
 
     } else {
         app.innerHTML = `
-            <div class="menu-invitado">
+            <div class="menu-guest">
                 <h1>AutoGrid</h1>
-                <p>Accede para guardar tus ofertas favoritas o regístrate gratis.</p>
+                <p>Log in to save your favorite offers or register for free.</p>
                 <div class="button-group">
-                    <button id="loginBtn">Iniciar sesión</button>
-                    <button id="registerBtn">Crear cuenta</button>
+                    <button id="loginBtn">Log in</button>
+                    <button id="registerBtn">Create account</button>
                 </div>
             </div>
         `;
