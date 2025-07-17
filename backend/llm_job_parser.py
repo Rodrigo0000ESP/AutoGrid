@@ -3,7 +3,7 @@ import json
 import openai
 from typing import Dict, Optional, List, Any
 from enum import Enum
-from backend.models import JobType
+from models import JobType
 
 
 class LlmJobParser:
@@ -32,18 +32,48 @@ class LlmJobParser:
                 print(f"Error initializing OpenAI client: {str(e)}. Using test mode.")
                 self.test_mode = True
     
-    def parse_job_listing(self, text_content: str, url: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
+    def parse_job_listing(self, parsed_html: Dict[str, Any], url: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
         """
         Parse job listing text using GPT-3.5 Turbo to extract structured job data.
+        For known job portals, uses both structured data and content.
         
         Args:
-            text_content: Pre-processed text content from the job listing
+            parsed_html: Dictionary containing parsed HTML data
             url: URL of the job listing (optional)
             title: Title of the job listing page (optional)
             
         Returns:
             Dictionary containing structured job data
         """
+        # Ensure we have valid input data
+        if parsed_html is None:
+            parsed_html = {"content": title or "Untitled Job", "portal": None}
+        
+        # Handle different input types for backward compatibility
+        if isinstance(parsed_html, str):
+            text_content = parsed_html
+            portal = None
+            html_container = ""
+            structured_data = {}
+        else:
+            # Extract content from parsed_html dictionary
+            text_content = parsed_html.get("content", "")
+            portal = parsed_html.get("portal", None)
+            html_container = parsed_html.get("html_container", "")
+            structured_data = parsed_html.get("structured_data", {})
+            
+        # Ensure we have some content to parse
+        if not text_content and title:
+            text_content = f"Job Title: {title}\n"
+            if url:
+                text_content += f"URL: {url}\n"
+        
+        # Extract company name from URL if not in structured data
+        if not structured_data.get("company") and url:
+            company_from_url = self._extract_company_from_url(url)
+            if company_from_url:
+                structured_data["company"] = company_from_url
+        
         if not text_content:
             # Return basic info if no content to parse
             return {
@@ -56,13 +86,29 @@ class LlmJobParser:
                 "link": url or ""
             }
             
-        # If in test mode, return mock data
+        # If we have structured data from a known portal, use it to pre-fill the job data
+        prefilled_data = {}
+        if portal and structured_data:
+            if "job_title" in structured_data:
+                prefilled_data["position"] = structured_data["job_title"]
+            if "company" in structured_data:
+                prefilled_data["company"] = structured_data["company"]
+            if "location" in structured_data:
+                prefilled_data["location"] = structured_data["location"]
+            if "job_type" in structured_data:
+                prefilled_data["job_type"] = self._normalize_job_type(structured_data["job_type"])
+            
+        # If in test mode, return mock data with any prefilled data
         if self.test_mode:
             print("Using test mode for LLM job parsing")
-            return self._get_mock_job_data(text_content, url, title)
+            mock_data = self._get_mock_job_data(text_content, url, title)
+            # Update mock data with any prefilled data we have
+            if prefilled_data:
+                mock_data.update(prefilled_data)
+            return mock_data
         
         # Create prompt for the LLM
-        prompt = self._create_extraction_prompt(text_content, url, title)
+        prompt = self._create_extraction_prompt(text_content, url, title, portal, prefilled_data)
         
         try:
             # Call OpenAI API
@@ -82,24 +128,72 @@ class LlmJobParser:
             # Parse the JSON response
             try:
                 parsed_data = json.loads(result)
-                return self._normalize_job_data(parsed_data, url, title)
+                # Merge with prefilled data, giving preference to LLM results
+                result_data = self._normalize_job_data(parsed_data, url, title)
+                # For any fields that are empty in the result but present in prefilled_data, use prefilled_data
+                for key, value in prefilled_data.items():
+                    if not result_data.get(key) and value:
+                        result_data[key] = value
+                return result_data
             except json.JSONDecodeError:
                 # If JSON parsing fails, try to extract data using regex or other methods
-                return self._fallback_extraction(result, url, title)
+                fallback_data = self._fallback_extraction(result, url, title)
+                # Merge with prefilled data, giving preference to fallback results
+                for key, value in prefilled_data.items():
+                    if not fallback_data.get(key) and value:
+                        fallback_data[key] = value
+                return fallback_data
                 
         except Exception as e:
             print(f"Error calling OpenAI API: {str(e)}")
             # Fallback to mock data on error
             print("Falling back to test mode after API error")
-            return self._get_mock_job_data(text_content, url, title)
+            mock_data = self._get_mock_job_data(text_content, url, title)
+            # Update mock data with any prefilled data we have
+            if prefilled_data:
+                mock_data.update(prefilled_data)
+            return mock_data
     
-    def _create_extraction_prompt(self, text_content: str, url: Optional[str], title: Optional[str]) -> str:
+    def _extract_company_from_url(self, url: str) -> Optional[str]:
+        """Extract company name from URL for known job portals"""
+        try:
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc.lower()
+            
+            # For LinkedIn URLs
+            if "linkedin.com" in domain:
+                path_parts = parsed_url.path.strip('/').split('/')
+                if len(path_parts) > 2 and path_parts[0] == 'company':
+                    return path_parts[1].replace('-', ' ').title()
+                    
+            # For other job sites, try to extract from path or query
+            company_indicators = ['company', 'employer', 'hiring']
+            query_params = parse_qs(parsed_url.query)
+            
+            for indicator in company_indicators:
+                if indicator in query_params:
+                    return query_params[indicator][0].replace('-', ' ').replace('_', ' ').title()
+                    
+            return None
+        except:
+            return None
+    
+    def _create_extraction_prompt(self, text_content: str, url: Optional[str], title: Optional[str], portal: Optional[str] = None, prefilled_data: Optional[Dict[str, str]] = None) -> str:
         """Create a structured prompt for the LLM"""
         context = ""
         if url:
             context += f"URL: {url}\n"
         if title:
             context += f"Page Title: {title}\n"
+        if portal:
+            context += f"Job Portal: {portal}\n"
+            
+        # Add any prefilled data to the context
+        if prefilled_data and len(prefilled_data) > 0:
+            context += "\nPre-extracted information (verify and use if accurate):\n"
+            for key, value in prefilled_data.items():
+                if value:
+                    context += f"{key}: {value}\n"
         
         prompt = f"""
 {context}
@@ -111,6 +205,12 @@ Below is the content of a job listing. Please extract the following information 
 4. Salary Range (if available)
 5. Job Type (full-time, part-time, contract, freelance, internship, temporary, or other)
 6. Job Description (summarized in 2-3 sentences)
+
+Important instructions:
+- Pay special attention to extracting the company name correctly
+- If the company name is not explicitly mentioned, check if it appears in the URL or page title
+- For LinkedIn job listings, look for the company name near the job title or in the top card section
+- Return all responses in English, even if the original content is in another language
 
 Return ONLY a valid JSON object with the following structure:
 {{

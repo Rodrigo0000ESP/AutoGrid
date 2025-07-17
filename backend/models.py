@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Text, Enum
 from sqlalchemy.orm import relationship
-from backend.BaseRepository import Base
-from backend.pagination import PaginationParams, PaginatedResult
+from BaseRepository import Base
+from pagination import PaginationParams, PaginatedResult
 from pydantic import BaseModel
 from typing import List, Generic, TypeVar, Optional
 from datetime import datetime

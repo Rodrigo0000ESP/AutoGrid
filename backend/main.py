@@ -2,10 +2,10 @@ import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
-import backend.bcrypt_fix
-from backend.auth_controller import router as auth_router
-from backend.job_controller import router as job_router
-from backend.BaseRepository import Base, engine
+import bcrypt_fix
+from auth_controller import router as auth_router
+from job_controller import router as job_router
+from BaseRepository import Base, engine
 
 load_dotenv()
 

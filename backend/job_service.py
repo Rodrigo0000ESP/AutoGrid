@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
-from backend.BaseRepository import BaseRepository
-from backend.models import Job, JobStatus, JobType
+from BaseRepository import BaseRepository
+from models import Job, JobStatus, JobType
 from datetime import datetime
 
 class JobService:
@@ -147,7 +147,7 @@ class JobService:
         # If HTML content is provided, try to extract more data
         if html_content and url:
             try:
-                from backend.llm_job_parser import LlmJobParser
+                from llm_job_parser import LlmJobParser
                 llm_parser = LlmJobParser()
                 
                 # Extract job data from HTML

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from backend.auth import AuthRepository
-from backend.BaseRepository import SessionLocal
-from backend.models import User, PasswordReset
-from backend.email_service import send_password_reset_email
+from auth import AuthRepository
+from BaseRepository import SessionLocal
+from models import User, PasswordReset
+from email_service import send_password_reset_email
 import secrets
-import string
+import string   
 import os
 from datetime import datetime, timedelta
 from typing import Optional
@@ -40,7 +40,7 @@ class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
 
-from backend.jwt_utils import create_access_token, get_current_user
+from jwt_utils import create_access_token, get_current_user
 
 class UserResponse(BaseModel):
     id: int

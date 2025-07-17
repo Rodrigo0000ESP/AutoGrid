@@ -3,12 +3,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from datetime import datetime
-from backend.BaseRepository import SessionLocal
-from backend.job_service import JobService
-from backend.models import JobType, JobStatus
-from backend.jwt_utils import get_current_user
-from backend.html_parser import HtmlParser
-from backend.llm_job_parser import LlmJobParser
+from BaseRepository import SessionLocal
+from job_service import JobService
+from models import JobType, JobStatus
+from jwt_utils import get_current_user
+from html_parser import HtmlParser
+from llm_job_parser import LlmJobParser
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -185,11 +185,15 @@ def preparse_job_offer(
     
     # Pre-parse HTML
     html_parser = HtmlParser()
-    parsed_text = html_parser.preparse_html(html_content)
+    parsed_html = html_parser.preparse_html(html_content, url)
+    
+    # For backward compatibility, also include parsed_text
+    parsed_text = parsed_html.get("content", "")
     
     return {
         "status": "success",
-        "parsed_text": parsed_text,
+        "parsed_html": parsed_html,
+        "parsed_text": parsed_text,  # For backward compatibility
         "url": url,
         "title": title
     }
@@ -203,31 +207,47 @@ def parse_job_with_ai(
     Parse job offer text using AI to extract structured data
     """
     # Extract data from the request
-    text_content = job_data.get("parsed_text", "")
     url = job_data.get("url", "")
     title = job_data.get("title", "")
     
-    if not text_content:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Parsed text content is required"
-        )
+    # Handle all possible input formats
+    parsed_text = job_data.get("parsed_text", "")
+    parsed_html = job_data.get("parsed_html", None)
+    html_content = job_data.get("html_content", "")
+    
+    # If we have raw HTML content but no parsed content, try to parse it
+    if html_content and not parsed_html and not parsed_text:
+        try:
+            html_parser = HtmlParser()
+            parsed_html = html_parser.preparse_html(html_content, url)
+        except Exception as e:
+            print(f"Error pre-parsing HTML: {str(e)}")
+            # Create a basic structure if parsing fails
+            parsed_html = {"content": html_content[:10000], "portal": None}
+    
+    # If we have the old format but not the new format, convert it
+    elif parsed_text and not parsed_html:
+        parsed_html = {"content": parsed_text, "portal": None}
+    # If we have neither, use the title and URL as minimal content
+    elif not parsed_html:
+        minimal_content = f"Job Title: {title}\nURL: {url}"
+        parsed_html = {"content": minimal_content, "portal": None}
     
     # Parse job with LLM
     try:
-        # Intentar usar el parser con API de OpenAI
+        # Try to use the parser with OpenAI API
         llm_parser = LlmJobParser()
-        parsed_job_data = llm_parser.parse_job_listing(text_content, url, title)
+        parsed_job_data = llm_parser.parse_job_listing(parsed_html, url, title)
         
         return {
             "status": "success",
             "parsed_job_data": parsed_job_data
         }
     except Exception as e:
-        # Si falla, usar el modo de prueba
+        # If it fails, use test mode
         print(f"Error using LLM parser: {str(e)}. Falling back to test mode.")
         llm_parser = LlmJobParser(test_mode=True)
-        parsed_job_data = llm_parser.parse_job_listing(text_content, url, title)
+        parsed_job_data = llm_parser.parse_job_listing(parsed_html, url, title)
         
         return {
             "status": "success",
@@ -255,13 +275,14 @@ def save_job_offer(
         try:
             # Pre-parse HTML
             html_parser = HtmlParser()
-            parsed_text = html_parser.preparse_html(html_content)
+            url = job_data.get("url", "")
+            parsed_html = html_parser.preparse_html(html_content, url)
             
             # Parse with LLM
             llm_parser = LlmJobParser()
             parsed_job_data = llm_parser.parse_job_listing(
-                parsed_text, 
-                job_data.get("url", ""), 
+                parsed_html, 
+                url, 
                 job_data.get("title", "")
             )
         except Exception as e:
