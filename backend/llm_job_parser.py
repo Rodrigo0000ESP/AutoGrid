@@ -32,35 +32,38 @@ class LlmJobParser:
                 print(f"Error initializing OpenAI client: {str(e)}. Using test mode.")
                 self.test_mode = True
     
-    def parse_job_listing(self, parsed_html: Dict[str, Any], url: Optional[str] = None, title: Optional[str] = None) -> Dict[str, Any]:
+    def parse_job_listing(self, parsed_text: Dict[str, Any], url: Optional[str] = None, title: Optional[str] = None,company: Optional[str] = None,location: Optional[str] = None,job_type: Optional[str] = None,portal: Optional[str] = None) -> Dict[str, Any]:
         """
         Parse job listing text using GPT-3.5 Turbo to extract structured job data.
         For known job portals, uses both structured data and content.
         
         Args:
-            parsed_html: Dictionary containing parsed HTML data
+            parsed_text: Dictionary containing parsed HTML data
             url: URL of the job listing (optional)
             title: Title of the job listing page (optional)
+            company: Company name (optional)
+            location: Location (optional)
+            job_type: Job type (optional)
             
         Returns:
             Dictionary containing structured job data
         """
         # Ensure we have valid input data
-        if parsed_html is None:
-            parsed_html = {"content": title or "Untitled Job", "portal": None}
+        if parsed_text is None:
+            parsed_text = {"content": title or "Untitled Job", "portal": None}
         
         # Handle different input types for backward compatibility
-        if isinstance(parsed_html, str):
-            text_content = parsed_html
-            portal = None
+        if isinstance(parsed_text, str):
+            text_content = parsed_text
+            portal = portal
             html_container = ""
             structured_data = {}
         else:
             # Extract content from parsed_html dictionary
-            text_content = parsed_html.get("content", "")
-            portal = parsed_html.get("portal", None)
-            html_container = parsed_html.get("html_container", "")
-            structured_data = parsed_html.get("structured_data", {})
+            text_content = parsed_text
+            portal = None
+            html_container = ""
+            structured_data = {}
             
         # Ensure we have some content to parse
         if not text_content and title:

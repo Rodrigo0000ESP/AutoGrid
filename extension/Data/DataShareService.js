@@ -1,111 +1,212 @@
 // API URL para las peticiones al backend
-export const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8000";
+
+// Known job portals (moved from constants for compatibility)
+const KNOWN_PORTALS = [
+    "linkedin",
+    "indeed", 
+    "glassdoor",
+    "monster",
+    "ziprecruiter"
+];
 
 /**
  * Saves a job offer in the backend with the HTML content of the current page.
  * @param {Object} offer - { title, url }
  * @returns {Promise<Object>} - Backend response
  */
-export async function saveJobOffer({ title, url }) {
+/**
+ * Saves a job offer in the backend with the HTML content of the current page.
+ * @param {Object} offer - { title, url }
+ * @returns {Promise<Object>} - Backend response
+ */
+/**
+ * Saves a job offer by following the complete flow:
+ * 1. Scrape the web page for content
+ * 2. Parse with HTML parser
+ * 3. Enhance with AI
+ * 4. Save the job with the enhanced data
+ * @param {Object} param0 - Object containing title and url of the job
+ * @returns {Promise<Object>} - The saved job data
+ */
+export async function saveJobOffer({ url }) {
     const token = localStorage.getItem("autogrid_token");
     if (!token) throw new Error("Not authenticated");
     
+    // Step 1: Scrape the web page
+    console.log("🔍 Step 1: Extracting content from the web page...");
+    let htmlContent;
     try {
-        // Step 1: Extract relevant HTML content from the active tab
-        const htmlContent = await extractRelevantHTML();
-        console.log("Extracted HTML content successfully");
+        const isKnownPortal = KNOWN_PORTALS.some(portal => url.toLowerCase().includes(portal));
         
-        // Step 2: Send to backend for pre-parsing
-        console.log("Sending to pre-parser...");
-        const preParsedResponse = await fetch(`${API_URL}/jobs/preparse-job-offer`, {
+        if (isKnownPortal) {
+            console.log("🔹 Known job portal detected, using full HTML for parsing");
+            htmlContent = await getActiveTabHTML();
+        } else {
+            console.log("🔹 Unknown job portal, extracting relevant content");
+            htmlContent = await extractRelevantHTML();
+        }
+        
+        if (!htmlContent) {
+            throw new Error("Failed to extract HTML content from the page");
+        }
+        console.log("✅ Successfully extracted HTML content");
+        
+    } catch (error) {
+        console.error("❌ Error extracting content:", error);
+        throw new Error(`Failed to extract content: ${error.message}`);
+    }
+    
+    // Step 2: Parse with HTML parser
+    console.log("\n🔧 Step 2: Parsing with HTML parser...");
+    let parsedHtml;
+    try {
+        const parseResponse = await fetch(`${API_URL}/jobs/preparse-job-offer`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({ 
-                title, 
                 url, 
                 html_content: htmlContent 
             })
         });
+
+        // Get raw response text first for better error handling
+        const responseText = await parseResponse.text();
+        console.log("🔹 Raw HTML parse response:", responseText);
         
-        if (!preParsedResponse.ok) {
-            const error = await preParsedResponse.json();
-            throw new Error(error.detail || "Error pre-parsing job offer");
+        try {
+            parsedHtml = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Failed to parse JSON response:", e);
+            throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}...`);
         }
         
-        const preParsedData = await preParsedResponse.json();
-        console.log("Pre-parsing successful");
+        if (!parseResponse.ok) {
+            console.error("API Error:", parsedHtml);
+            throw new Error(parsedHtml.detail || "Error parsing job with HTML parser");
+        }
         
-        // Step 3: Send pre-parsed text for AI extraction
-        console.log("Sending to AI parser...");
-        const aiParseResponse = await fetch(`${API_URL}/jobs/parse-job-with-ai`, {
+        console.log("✅ Successfully parsed job with HTML parser");
+        
+    } catch (error) {
+        console.error("❌ Error parsing with HTML parser:", error);
+        throw new Error(`Failed to parse job with HTML parser: ${error.message}`);
+    }
+    
+    // Step 3: Enhance with AI
+    console.log("\n🤖 Step 3: Enhancing with AI...");
+    let enhancedData;
+    try {
+        const aiResponse = await fetch(`${API_URL}/jobs/parse-job-with-ai`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
             },
-            body: JSON.stringify({ 
-                title, 
-                url, 
-                parsed_text: preParsedData.parsed_text 
+            body: JSON.stringify({
+                url,
+                html_content: htmlContent,
+                parsed_html: parsedHtml  // Include the HTML parser results
             })
         });
+
+        const responseText = await aiResponse.text();
+        console.log("🔹 Raw AI enhancement response:", responseText);
         
-        if (!aiParseResponse.ok) {
-            const error = await aiParseResponse.json();
-            throw new Error(error.detail || "Error parsing job with AI");
+        try {
+            enhancedData = JSON.parse(responseText);
+        } catch (e) {
+            console.error("Failed to parse AI response:", e);
+            throw new Error(`Invalid AI response: ${responseText.substring(0, 100)}...`);
         }
         
-        const parsedJobData = await aiParseResponse.json();
-        console.log("AI parsing successful");
+        if (!aiResponse.ok) {
+            console.error("AI API Error:", enhancedData);
+            throw new Error(enhancedData.detail || "Error enhancing job with AI");
+        }
         
-        // Step 4: Save the fully parsed job data
-        console.log("Saving job data...");
-        const saveResponse = await fetch(`${API_URL}/jobs/save`, {
+        console.log("✅ Successfully enhanced job data with AI");
+        
+    } catch (error) {
+        console.error("❌ Error enhancing with AI:", error);
+        throw new Error(`Failed to enhance job with AI: ${error.message}`);
+    }
+    
+    // Step 4: Save the job with the enhanced data
+    console.log("\n💾 Step 4: Saving job data...");
+    try {
+        // The enhanced data is in enhancedData.parsed_job_data
+        const jobData = enhancedData.parsed_job_data || parsedHtml.parsed_html?.structured_data || {};
+        
+        // Prepare the job data according to the JobCreate model
+        const jobToSave = {
+            position: jobData.job_title || parsedHtml.title || "No title available",
+            company: jobData.company || "",
+            location: jobData.location || "",
+            job_type: jobData.job_type || "",
+            status: "Saved",  // Must match the JobStatus enum in the backend
+            description: jobData.description || "",
+            link: url,
+            notes: ""
+        };
+
+        console.log("🔹 Sending job data to save:", JSON.stringify(jobToSave, null, 2));
+        
+        const saveResponse = await fetch(`${API_URL}/jobs/`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${token}`
             },
-            body: JSON.stringify({ 
-                title, 
-                url, 
-                parsed_job_data: parsedJobData.parsed_job_data 
-            })
+            body: JSON.stringify(jobToSave)
         });
         
         if (!saveResponse.ok) {
-            const error = await saveResponse.json();
+            const error = await saveResponse.json().catch(() => ({}));
+            console.error("❌ Save error response:", error);
             throw new Error(error.detail || "Error saving job offer");
         }
         
-        return await saveResponse.json();
+        const savedJob = await saveResponse.json();
+        console.log("✅ Successfully saved job:", savedJob);
+        return savedJob;
         
     } catch (error) {
-        console.error("Error in job saving workflow:", error);
+        console.error("❌ Error saving job:", error);
         
-        // Fallback to basic job saving if any step fails
+        // Fallback to basic job saving if the main flow fails
         try {
-            console.log("Falling back to basic job saving...");
-            const response = await fetch(`${API_URL}/jobs/save`, {
+            console.log("🔄 Falling back to basic job saving...");
+            const response = await fetch(`${API_URL}/jobs/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ title, url })
+                body: JSON.stringify({ 
+                    position: parsedHtml?.title || "No title available",
+                    company: "",
+                    link: url,
+                    status: "Saved"  // Must match the JobStatus enum in the backend
+                })
             });
             
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || "Error saving offer");
+                const error = await response.json().catch(() => ({}));
+                console.error("❌ Fallback save error:", error);
+                throw new Error(error.detail || "Error saving offer in fallback mode");
             }
-            return await response.json();
+            
+            const fallbackJob = await response.json();
+            console.log("✅ Successfully saved job in fallback mode");
+            return fallbackJob;
+            
         } catch (fallbackError) {
-            console.error("Fallback error:", fallbackError);
-            throw fallbackError;
+            console.error("❌ Fallback save also failed:", fallbackError);
+            throw new Error(`Failed to save job (fallback also failed): ${fallbackError.message}`);
         }
     }
 }

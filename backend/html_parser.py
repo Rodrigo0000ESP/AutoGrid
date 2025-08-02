@@ -1,4 +1,4 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 import re
 from typing import Dict, Optional, List, Tuple
 from urllib.parse import urlparse
@@ -13,16 +13,16 @@ class HtmlParser:
     def __init__(self):
         # Job containers and key element selectors for top job platforms
         self.job_platforms = {
-            "linkedin.com": {
+            "linkedin": {
                 "container": ".jobs-search__job-details--wrapper",
                 "description_container": "article.jobs-description__container",
                 "job_details": ".jobs-box__html-content#job-details",
-                "job_title": ".job-details-jobs-unified-top-card__job-title",
-                "company": ".jobs-unified-top-card__company-name, .job-details-jobs-unified-top-card__company-name, .jobs-company__name",
-                "location": ".job-details-jobs-unified-top-card__primary-description-container .job-details-jobs-unified-top-card__bullet, .jobs-unified-top-card__bullet",
-                "job_type": ".job-details-jobs-unified-top-card__job-insight, .jobs-unified-top-card__job-insight"
+                "job_title": "h2.t-16.t-black.t-bold.truncate, .text-heading-large",
+                "company": ".t-14.truncate",
+                "location": ".t-14.truncate",
+                "job_type": ".t-14.truncate",
             },
-            "indeed.com": {
+            "indeed": {
                 "container": ".jobsearch-ViewJobLayout-jobDisplay",
                 "description_container": ".jobsearch-JobComponent-description",
                 "job_details": ".jobsearch-jobDescriptionText",
@@ -31,7 +31,7 @@ class HtmlParser:
                 "location": ".jobsearch-JobInfoHeader-subtitle .jobsearch-JobInfoHeader-locationName",
                 "job_type": ".jobsearch-JobDescriptionSection-sectionItem .jobsearch-JobDescriptionSection-sectionItemKey:contains('Job type') + span"
             },
-            "glassdoor.com": {
+            "glassdoor": {
                 "container": ".JobDetails_jobDetailsContainer__y9P3L, .jobView, .jobDescriptionContent, [data-test='jobDesc']",
                 "description_container": ".desc, .jobDescriptionContent, [data-test='jobDescriptionContent']",
                 "job_details": ".jobDescriptionContent, [data-test='jobDesc']",
@@ -40,7 +40,7 @@ class HtmlParser:
                 "location": ".location, [data-test='location'], .css-56kyx5, .css-1v5elnn",
                 "job_type": ".employment-info-details, [data-test='employmentType'], .css-1v5elnn, .css-1wh2oi2"
             },
-            "monster.com": {
+            "monster": {
                 "container": "article[data-testid='JobCard'], .jobview-container-styles__JobViewWrapper-sc-59e1f345-0",
                 "description_container": ".indexmodern__DescriptionClamp-sc-9vl52l-38, .jobview-content",
                 "job_details": "p[data-testid='SingleDescription'], .job-description",
@@ -49,7 +49,7 @@ class HtmlParser:
                 "location": "span[data-testid='jobDetailLocation'], .location",
                 "job_type": ".job-type"
             },
-            "ziprecruiter.com": {
+            "ziprecruiter": {
                 "container": ".panel-body, .job-body",
                 "description_container": ".job-body, .jobDescriptionContent",
                 "job_details": ".wysiwyg, .jobDescriptionContent",
@@ -102,47 +102,27 @@ class HtmlParser:
             return {"content": "", "portal": None}
         
         try:
-            # Determine if this is from a known job portal first
-            portal = None
-            if url:
-                domain = self._extract_domain(url)
-                # Map of base names to full domain keys in self.job_platforms
-                portal_base_names = {
-                    "linkedin": "linkedin.com",
-                    "indeed": "indeed.com",
-                    "glassdoor": "glassdoor.com",
-                    "monster": "monster.com",
-                    "ziprecruiter": "ziprecruiter.com"
-                }
-                
-                # First try direct match with domain keys
-                for portal_domain in self.job_platforms.keys():
-                    if portal_domain in domain:
-                        portal = portal_domain
-                        break
-                
-                # If no direct match, try matching with base names
-                if not portal:
-                    for base_name, full_domain in portal_base_names.items():
-                        if base_name in domain:
-                            portal = full_domain
-                            break
-            
-            # Parse HTML
+            # Create BeautifulSoup object
             soup = BeautifulSoup(html_content, 'html.parser')
             
-            # If it's a known portal, preserve styles and use portal-specific selectors
-            if portal:
-                # For known portals, only remove script, iframe and noscript elements
-                # but preserve style elements to maintain CSS classes
-                for element in soup(["script", "iframe", "noscript"]):
-                    element.decompose()
-                return self._parse_known_portal(soup, portal)
+            # Determine if this is from a known job portal
+            portal = None
+            if url:
+                # _extract_domain now returns the base portal name if known
+                portal = self._extract_domain(url)
+                
+                # If we got a base portal name, use its specific parser
+                if portal and portal in self.job_platforms:
+                    # For known portals, only remove script, iframe and noscript elements
+                    # but preserve style elements to maintain CSS classes
+                    for element in soup(["script", "iframe", "noscript"]):
+                        element.decompose()
+                    return self._parse_known_portal(soup, portal)
             
             # For generic portals, remove all non-essential elements including styles
             for element in soup(["script", "style", "iframe", "noscript"]):
                 element.decompose()
-            
+                
             # Use the generic approach
             return self._parse_generic_portal(soup)
             
@@ -226,14 +206,54 @@ class HtmlParser:
         return text.strip()
         
     def _extract_domain(self, url: str) -> str:
-        """Extract domain from URL"""
+        """
+        Extract and normalize domain from URL, handling different TLDs for the same site.
+        Returns the base domain (e.g., 'linkedin' from 'linkedin.es' or 'linkedin.com')
+        if it matches a known platform, otherwise returns the full domain.
+        """
         try:
             parsed_url = urlparse(url)
-            domain = parsed_url.netloc
+            domain = parsed_url.netloc.lower()
+            
+            # Remove www. if present
             if domain.startswith('www.'):
                 domain = domain[4:]
-            return domain
-        except:
+                
+            # Remove port if present
+            domain = domain.split(':')[0]
+            
+            # Known platform domains and their base names
+            domain_mapping = {
+                'linkedin.com': 'linkedin',
+                'linkedin.': 'linkedin',  # Catches all linkedin.* TLDs
+                'indeed.com': 'indeed',
+                'indeed.': 'indeed',      # Catches all indeed.* TLDs
+                'glassdoor.com': 'glassdoor',
+                'glassdoor.': 'glassdoor', # Catches all glassdoor.* TLDs
+                'monster.com': 'monster',
+                'monster.': 'monster',    # Catches all monster.* TLDs
+                'ziprecruiter.com': 'ziprecruiter',
+                'ziprecruiter.': 'ziprecruiter'  # Catches all ziprecruiter.* TLDs
+            }
+            
+            # First check for direct matches
+            if domain in domain_mapping:
+                return domain_mapping[domain]
+                
+            # Then check for TLD variations (e.g., linkedin.co.uk, linkedin.es)
+            for domain_pattern, base_name in domain_mapping.items():
+                if domain_pattern.endswith('.') and domain.startswith(domain_pattern):
+                    return base_name
+                    
+            # Special case for LinkedIn subdomains (e.g., www.linkedin.com)
+            if 'linkedin.com' in domain:
+                return 'linkedin'
+                    
+            # For unknown domains, return the main part (before first dot)
+            return domain.split('.')[0] if '.' in domain else domain
+            
+        except Exception as e:
+            print(f"Error extracting domain from {url}: {str(e)}")
             return ""
     
     def _parse_known_portal(self, soup: BeautifulSoup, portal: str) -> Dict[str, str]:
@@ -250,66 +270,96 @@ class HtmlParser:
         if not platform_selectors:
             return self._parse_generic_portal(soup)
         
-        # Special handling for LinkedIn
-        try:
-            if portal == "linkedin.com":
-                # First try to find the job description container
-                description_container = soup.select_one(platform_selectors.get("description_container", ""))
+        # For LinkedIn, try to find the job description container
+        if portal == "linkedin":
+            description_container = soup.select_one(platform_selectors.get("description_container", ""))
+            if description_container:
+                # Clean up the description container HTML
+                for comment in description_container.find_all(string=lambda text: isinstance(text, Comment)):
+                    comment.extract()
                 
-                # Direct extraction of the job description container
-                if description_container:
-                    # Store the complete HTML of the description container
-                    result["html_container"] = str(description_container)
-                    result["content"] = description_container.get_text(separator='\n', strip=True)
-                    
-                    # Try to get the job details section for more specific content
-                    job_details = description_container.select_one(platform_selectors.get("job_details", ""))
-                    if job_details:
-                        result["job_details_html"] = str(job_details)
-                    
-                    # Extract structured data from the main container
-                    container = soup.select_one(platform_selectors.get("container", ""))
-                    if container:
-                        for field, selector in platform_selectors.items():
-                            if field not in ["container", "description_container", "job_details"]:
-                                try:
-                                    element = container.select_one(selector)
-                                    if element:
-                                        result["structured_data"][field] = element.get_text(strip=True)
-                                except Exception as e:
-                                    print(f"Error extracting {field}: {str(e)}")
-                    
-                    # Limit content size to avoid token limits
-                    if len(result["content"]) > 10000:
-                        result["content"] = result["content"][:10000]
-                        
-                    return result
-        except Exception as e:
-            print(f"Error in LinkedIn special handling: {str(e)}")
-            # Continue to default handling
-        
-        # Default handling for other portals or if LinkedIn special handling failed
-        container_selector = platform_selectors.get("container", "")
-        container = soup.select_one(container_selector)
-        
-        if container:
-            # Store the HTML of the container
-            result["html_container"] = str(container)
-            # Also extract text for backward compatibility
-            result["content"] = container.get_text(separator='\n', strip=True)
-            if len(result["content"]) > 10000:
-                result["content"] = result["content"][:10000]
+                # Remove empty elements and script/style tags
+                for element in description_container.find_all():
+                    # Remove comments
+                    if isinstance(element, Comment):
+                        element.extract()
+                    # Remove empty elements
+                    elif not element.get_text(strip=True) and not element.find(True):
+                        element.decompose()
+                
+                # Clean up whitespace in text nodes
+                for text_node in description_container.find_all(string=True):
+                    if text_node.strip() == '':
+                        text_node.extract()
+                    else:
+                        text_node.replace_with(' '.join(text_node.split()))
+                
+                # Store the cleaned HTML
+                result["html_container"] = str(description_container)
+                
+                # Get clean text content
+                result["content"] = description_container.get_text(separator='\n', strip=True)
+                
+                # Extract structured data from the entire document
+                # Extract job title
+                title_elem = soup.select_one(platform_selectors.get("job_title", ""))
+                if title_elem:
+                    result["structured_data"]["job_title"] = title_elem.get_text(strip=True)
+                
+                # Extract company and location (they might be in the same element)
+                company_elem = soup.select_one(platform_selectors.get("company", ""))
+                if company_elem:
+                    company_text = company_elem.get_text(strip=True)
+                    # If company and location are in the same element, split them
+                    if '·' in company_text:
+                        company_parts = [p.strip() for p in company_text.split('·', 1)]
+                        result["structured_data"]["company"] = company_parts[0]
+                        if len(company_parts) > 1:
+                            result["structured_data"]["location"] = company_parts[1]
+                    else:
+                        result["structured_data"]["company"] = company_text
+                
+                # Extract location if not already extracted
+                if "location" not in result["structured_data"]:
+                    location_elem = soup.select_one(platform_selectors.get("location", ""))
+                    if location_elem:
+                        result["structured_data"]["location"] = location_elem.get_text(strip=True)
+                
+                # Extract job type if available
+                job_type_elem = soup.select_one(platform_selectors.get("job_type", ""))
+                if job_type_elem:
+                    result["structured_data"]["job_type"] = job_type_elem.get_text(strip=True)
+                
+                # Try to get the job details section for more specific content
+                job_details = description_container.select_one(platform_selectors.get("job_details", ""))
+                if job_details:
+                    # Clean up job details HTML
+                    for comment in job_details.find_all(string=lambda text: isinstance(text, Comment)):
+                        comment.extract()
+                    result["job_details_html"] = str(job_details)
+                
+                return result
             
-            # Extract key elements directly FROM WITHIN THE CONTAINER
-            # This ensures we're searching within the container, not the entire document
-            for field, selector in platform_selectors.items():
-                if field not in ["container", "description_container", "job_details"]:
-                    # Search within the container element, not the entire document
-                    element = container.select_one(selector)
-                    if element:
-                        result["structured_data"][field] = element.get_text(strip=True)
-        
-        return result
+            # If we couldn't find the description container, try to extract basic info from the page
+            container = soup.select_one(platform_selectors.get("container", ""))
+            if container:
+                # Store the HTML of the container
+                result["html_container"] = str(container)
+                # Also extract text for backward compatibility
+                result["content"] = container.get_text(separator='\n', strip=True)
+                if len(result["content"]) > 10000:
+                    result["content"] = result["content"][:10000]
+                
+                # Extract key elements directly FROM WITHIN THE CONTAINER
+                # This ensures we're searching within the container, not the entire document
+                for field, selector in platform_selectors.items():
+                    if field not in ["container", "description_container", "job_details"]:
+                        # Search within the container element, not the entire document
+                        element = container.select_one(selector)
+                        if element:
+                            result["structured_data"][field] = element.get_text(strip=True)
+            
+            return result
     
     def _parse_generic_portal(self, soup: BeautifulSoup) -> Dict[str, str]:
         """Parse HTML from a generic job portal"""
