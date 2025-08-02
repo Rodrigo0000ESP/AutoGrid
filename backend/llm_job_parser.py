@@ -16,6 +16,7 @@ class LlmJobParser:
     def __init__(self, test_mode=False):
         # Flag to enable test mode (no API calls)
         self.test_mode = test_mode
+        self.client = None
         
         # Only initialize OpenAI client if not in test mode
         if not test_mode:
@@ -47,72 +48,37 @@ class LlmJobParser:
             
         Returns:
             Dictionary containing structured job data
-        """
-        # Ensure we have valid input data
-        if parsed_text is None:
-            parsed_text = {"content": title or "Untitled Job", "portal": None}
-        
-        # Handle different input types for backward compatibility
-        if isinstance(parsed_text, str):
-            text_content = parsed_text
-            portal = portal
-            html_container = ""
-            structured_data = {}
-        else:
-            # Extract content from parsed_html dictionary
-            text_content = parsed_text
-            portal = None
-            html_container = ""
-            structured_data = {}
+        """        
             
-        # Ensure we have some content to parse
-        if not text_content and title:
-            text_content = f"Job Title: {title}\n"
-            if url:
-                text_content += f"URL: {url}\n"
-        
         # Extract company name from URL if not in structured data
-        if not structured_data.get("company") and url:
+        if not company and url:
             company_from_url = self._extract_company_from_url(url)
             if company_from_url:
-                structured_data["company"] = company_from_url
+                company = company_from_url
         
-        if not text_content:
+        if isinstance(parsed_text, str):
+            parsed_text = {"content": parsed_text}
+
+        if not parsed_text.get("content"):
             # Return basic info if no content to parse
             return {
                 "position": title or "Untitled Position",
-                "company": "",
-                "location": "",
+                "company": company or "Untitled Company",
+                "location": location or "Untitled Location",
                 "salary": "",
-                "job_type": "",
+                "job_type": job_type or "Untitled Job Type",
                 "description": "",
                 "link": url or ""
             }
-            
-        # If we have structured data from a known portal, use it to pre-fill the job data
-        prefilled_data = {}
-        if portal and structured_data:
-            if "job_title" in structured_data:
-                prefilled_data["position"] = structured_data["job_title"]
-            if "company" in structured_data:
-                prefilled_data["company"] = structured_data["company"]
-            if "location" in structured_data:
-                prefilled_data["location"] = structured_data["location"]
-            if "job_type" in structured_data:
-                prefilled_data["job_type"] = self._normalize_job_type(structured_data["job_type"])
-            
-        # If in test mode, return mock data with any prefilled data
-        if self.test_mode:
-            print("Using test mode for LLM job parsing")
-            mock_data = self._get_mock_job_data(text_content, url, title)
-            # Update mock data with any prefilled data we have
-            if prefilled_data:
-                mock_data.update(prefilled_data)
-            return mock_data
+        
         
         # Create prompt for the LLM
-        prompt = self._create_extraction_prompt(text_content, url, title, portal, prefilled_data)
+        prompt = self._create_extraction_prompt(parsed_text, url, title, portal, company, location, job_type)
         
+        if not self.client:
+            print("API key not set or client not initialized. Falling back to test mode.")
+            return self._get_mock_job_data(parsed_text, url, title)
+
         try:
             # Call OpenAI API
             response = self.client.chat.completions.create(
@@ -134,7 +100,7 @@ class LlmJobParser:
                 # Merge with prefilled data, giving preference to LLM results
                 result_data = self._normalize_job_data(parsed_data, url, title)
                 # For any fields that are empty in the result but present in prefilled_data, use prefilled_data
-                for key, value in prefilled_data.items():
+                for key, value in parsed_text.items():
                     if not result_data.get(key) and value:
                         result_data[key] = value
                 return result_data
@@ -142,7 +108,7 @@ class LlmJobParser:
                 # If JSON parsing fails, try to extract data using regex or other methods
                 fallback_data = self._fallback_extraction(result, url, title)
                 # Merge with prefilled data, giving preference to fallback results
-                for key, value in prefilled_data.items():
+                for key, value in parsed_text.items():
                     if not fallback_data.get(key) and value:
                         fallback_data[key] = value
                 return fallback_data
@@ -151,11 +117,8 @@ class LlmJobParser:
             print(f"Error calling OpenAI API: {str(e)}")
             # Fallback to mock data on error
             print("Falling back to test mode after API error")
-            mock_data = self._get_mock_job_data(text_content, url, title)
-            # Update mock data with any prefilled data we have
-            if prefilled_data:
-                mock_data.update(prefilled_data)
-            return mock_data
+            return self._get_mock_job_data(parsed_text, url, title)
+
     
     def _extract_company_from_url(self, url: str) -> Optional[str]:
         """Extract company name from URL for known job portals"""
@@ -181,7 +144,7 @@ class LlmJobParser:
         except:
             return None
     
-    def _create_extraction_prompt(self, text_content: str, url: Optional[str], title: Optional[str], portal: Optional[str] = None, prefilled_data: Optional[Dict[str, str]] = None) -> str:
+    def _create_extraction_prompt(self, parsed_data: Dict, url: Optional[str], title: Optional[str], portal: Optional[str] = None, company: Optional[str] = None, location: Optional[str] = None, job_type: Optional[str] = None) -> str:
         """Create a structured prompt for the LLM"""
         context = ""
         if url:
@@ -190,13 +153,25 @@ class LlmJobParser:
             context += f"Page Title: {title}\n"
         if portal:
             context += f"Job Portal: {portal}\n"
+        if company:
+            context += f"Company: {company}\n"
+        if location:
+            context += f"Location: {location}\n"
+        if job_type:
+            context += f"Job Type: {job_type}\n"
+
+        job_description = parsed_data.get("content", "")
             
         # Add any prefilled data to the context
-        if prefilled_data and len(prefilled_data) > 0:
+        if company or location or job_type:
             context += "\nPre-extracted information (verify and use if accurate):\n"
-            for key, value in prefilled_data.items():
-                if value:
-                    context += f"{key}: {value}\n"
+            if company:
+                context += f"Company: {company}\n"
+            if location:
+                context += f"Location: {location}\n"
+            if job_type:
+                context += f"Job Type: {job_type}\n"
+
         
         prompt = f"""
 {context}
@@ -228,7 +203,7 @@ Return ONLY a valid JSON object with the following structure:
 If any field is not found in the text, use an empty string for that field.
 
 Job Listing Content:
-{text_content[:4000]}  # Limit content to avoid token limits
+{job_description[:4000]}  # Limit content to avoid token limits
 """
         return prompt
     

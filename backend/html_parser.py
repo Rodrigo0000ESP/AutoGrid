@@ -270,75 +270,73 @@ class HtmlParser:
         if not platform_selectors:
             return self._parse_generic_portal(soup)
         
-        # For LinkedIn, try to find the job description container
-        if portal == "linkedin":
-            description_container = soup.select_one(platform_selectors.get("description_container", ""))
-            if description_container:
-                # Clean up the description container HTML
-                for comment in description_container.find_all(string=lambda text: isinstance(text, Comment)):
+        description_container = soup.select_one(platform_selectors.get("description_container", ""))
+        if description_container:
+            # Clean up the description container HTML
+            for comment in description_container.find_all(string=lambda text: isinstance(text, Comment)):
+                comment.extract()
+            
+            # Remove empty elements and script/style tags
+            for element in description_container.find_all():
+                # Remove comments
+                if isinstance(element, Comment):
+                    element.extract()
+                # Remove empty elements
+                elif not element.get_text(strip=True) and not element.find(True):
+                    element.decompose()
+            
+            # Clean up whitespace in text nodes
+            for text_node in description_container.find_all(string=True):
+                if text_node.strip() == '':
+                    text_node.extract()
+                else:
+                    text_node.replace_with(' '.join(text_node.split()))
+            
+            # Store the cleaned HTML
+            result["html_container"] = str(description_container)
+            
+            # Get clean text content
+            result["content"] = description_container.get_text(separator='\n', strip=True)
+            
+            # Extract structured data from the entire document
+            # Extract job title
+            title_elem = soup.select_one(platform_selectors.get("job_title", ""))
+            if title_elem:
+                result["structured_data"]["job_title"] = title_elem.get_text(strip=True)
+            
+            # Extract company and location (they might be in the same element)
+            company_elem = soup.select_one(platform_selectors.get("company", ""))
+            if company_elem:
+                company_text = company_elem.get_text(strip=True)
+                # If company and location are in the same element, split them
+                if '·' in company_text:
+                    company_parts = [p.strip() for p in company_text.split('·', 1)]
+                    result["structured_data"]["company"] = company_parts[0]
+                    if len(company_parts) > 1:
+                        result["structured_data"]["location"] = company_parts[1]
+                else:
+                    result["structured_data"]["company"] = company_text
+            
+            # Extract location if not already extracted
+            if "location" not in result["structured_data"]:
+                location_elem = soup.select_one(platform_selectors.get("location", ""))
+                if location_elem:
+                    result["structured_data"]["location"] = location_elem.get_text(strip=True)
+            
+            # Extract job type if available
+            job_type_elem = soup.select_one(platform_selectors.get("job_type", ""))
+            if job_type_elem:
+                result["structured_data"]["job_type"] = job_type_elem.get_text(strip=True)
+            
+            # Try to get the job details section for more specific content
+            job_details = description_container.select_one(platform_selectors.get("job_details", ""))
+            if job_details:
+                # Clean up job details HTML
+                for comment in job_details.find_all(string=lambda text: isinstance(text, Comment)):
                     comment.extract()
-                
-                # Remove empty elements and script/style tags
-                for element in description_container.find_all():
-                    # Remove comments
-                    if isinstance(element, Comment):
-                        element.extract()
-                    # Remove empty elements
-                    elif not element.get_text(strip=True) and not element.find(True):
-                        element.decompose()
-                
-                # Clean up whitespace in text nodes
-                for text_node in description_container.find_all(string=True):
-                    if text_node.strip() == '':
-                        text_node.extract()
-                    else:
-                        text_node.replace_with(' '.join(text_node.split()))
-                
-                # Store the cleaned HTML
-                result["html_container"] = str(description_container)
-                
-                # Get clean text content
-                result["content"] = description_container.get_text(separator='\n', strip=True)
-                
-                # Extract structured data from the entire document
-                # Extract job title
-                title_elem = soup.select_one(platform_selectors.get("job_title", ""))
-                if title_elem:
-                    result["structured_data"]["job_title"] = title_elem.get_text(strip=True)
-                
-                # Extract company and location (they might be in the same element)
-                company_elem = soup.select_one(platform_selectors.get("company", ""))
-                if company_elem:
-                    company_text = company_elem.get_text(strip=True)
-                    # If company and location are in the same element, split them
-                    if '·' in company_text:
-                        company_parts = [p.strip() for p in company_text.split('·', 1)]
-                        result["structured_data"]["company"] = company_parts[0]
-                        if len(company_parts) > 1:
-                            result["structured_data"]["location"] = company_parts[1]
-                    else:
-                        result["structured_data"]["company"] = company_text
-                
-                # Extract location if not already extracted
-                if "location" not in result["structured_data"]:
-                    location_elem = soup.select_one(platform_selectors.get("location", ""))
-                    if location_elem:
-                        result["structured_data"]["location"] = location_elem.get_text(strip=True)
-                
-                # Extract job type if available
-                job_type_elem = soup.select_one(platform_selectors.get("job_type", ""))
-                if job_type_elem:
-                    result["structured_data"]["job_type"] = job_type_elem.get_text(strip=True)
-                
-                # Try to get the job details section for more specific content
-                job_details = description_container.select_one(platform_selectors.get("job_details", ""))
-                if job_details:
-                    # Clean up job details HTML
-                    for comment in job_details.find_all(string=lambda text: isinstance(text, Comment)):
-                        comment.extract()
-                    result["job_details_html"] = str(job_details)
-                
-                return result
+                result["job_details_html"] = str(job_details)
+            
+            return result
             
             # If we couldn't find the description container, try to extract basic info from the page
             container = soup.select_one(platform_selectors.get("container", ""))
@@ -360,6 +358,10 @@ class HtmlParser:
                             result["structured_data"][field] = element.get_text(strip=True)
             
             return result
+        
+        # Fallback for other known portals that don't have specific parsing logic yet
+        else:
+            return self._parse_generic_portal(soup)
     
     def _parse_generic_portal(self, soup: BeautifulSoup) -> Dict[str, str]:
         """Parse HTML from a generic job portal"""

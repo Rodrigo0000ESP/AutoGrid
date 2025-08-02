@@ -185,6 +185,12 @@ def preparse_job_offer(
     # Pre-parse HTML
     html_parser = HtmlParser()
     parsed_html = html_parser.preparse_html(html_content, url)
+
+    if parsed_html is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to parse HTML content"
+        )
     if parsed_html.get("structured_data"):
         structured_data = parsed_html.get("structured_data", {})
     else:
