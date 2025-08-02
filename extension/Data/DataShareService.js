@@ -37,15 +37,7 @@ export async function saveJobOffer({ url }) {
     console.log("🔍 Step 1: Extracting content from the web page...");
     let htmlContent;
     try {
-        const isKnownPortal = KNOWN_PORTALS.some(portal => url.toLowerCase().includes(portal));
-        
-        if (isKnownPortal) {
-            console.log("🔹 Known job portal detected, using full HTML for parsing");
-            htmlContent = await getActiveTabHTML();
-        } else {
-            console.log("🔹 Unknown job portal, extracting relevant content");
-            htmlContent = await extractRelevantHTML();
-        }
+        htmlContent = await getActiveTabHTML();
         
         if (!htmlContent) {
             throw new Error("Failed to extract HTML content from the page");

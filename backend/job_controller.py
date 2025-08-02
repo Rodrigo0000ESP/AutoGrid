@@ -185,11 +185,13 @@ def preparse_job_offer(
     # Pre-parse HTML
     html_parser = HtmlParser()
     parsed_html = html_parser.preparse_html(html_content, url)
+    if parsed_html.get("structured_data"):
+        structured_data = parsed_html.get("structured_data", {})
+    else:
+        structured_data = { "portal": "To be Determined by LLM", "job_title": "To be Determined by LLM", "company": "To be Determined by LLM", "location": "To be Determined by LLM", "job_type": "To be Determined by LLM" }
     
     parsed_text = parsed_html.get("content", "")
-    
-    # Extract structured data from parsed HTML
-    structured_data = parsed_html.get("structured_data", {})
+
     
     # Create response with all data
     response_data = {
@@ -201,7 +203,7 @@ def preparse_job_offer(
         "company": structured_data.get("company", ""),
         "location": structured_data.get("location", ""),
         "job_type": structured_data.get("job_type", ""),
-        "raw_data": parsed_html  # Include all parsed data for backward compatibility
+        "raw_data": parsed_html  
     }
     
     return response_data
@@ -215,16 +217,15 @@ def parse_job_with_ai(
     Parse job offer using AI to extract structured data.
     This version prioritizes the structured data extracted by the HTML parser.
     """
-    title = job_data.get("title", "Untitled Position") 
-    url = job_data.get("url", "")
-    parsed_text = job_data.get("parsed_text", "")    
-    company = job_data.get("company", "")
-    location = job_data.get("location", "")
-    job_type = job_data.get("job_type", "")
-    portal = job_data.get("portal", "")
-    
-    if not parsed_text:
-        parsed_text = job_data.get("parsed_text", "")
+    parsed_data = job_data.get("parsed_html", {})
+    title = parsed_data.get("title", "Untitled Position") 
+    url = parsed_data.get("url", "")
+    parsed_text = parsed_data.get("parsed_text", "")    
+    company = parsed_data.get("company", "")
+    location = parsed_data.get("location", "")
+    job_type = parsed_data.get("job_type", "")
+    portal = parsed_data.get("portal", "")
+     
     
     try:
         # Try to use the parser with OpenAI API
