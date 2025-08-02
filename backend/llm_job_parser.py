@@ -177,7 +177,7 @@ class LlmJobParser:
 {context}
 Below is the content of a job listing. Please extract the following information in JSON format:
 
-1. Position/Job Title
+1. Position/Job Title (if available, if not use the job description to provide a propper job title)
 2. Company Name
 3. Location (city, state, country, or remote)
 4. Salary Range (if available)
@@ -189,6 +189,9 @@ Important instructions:
 - If the company name is not explicitly mentioned, check if it appears in the URL or page title
 - For LinkedIn job listings, look for the company name near the job title or in the top card section
 - Return all responses in English, even if the original content is in another language
+- The 'position' field MUST contain only the job title. Do NOT include work model details like 'remote' or 'hybrid'.
+- The 'job_type' field should include the work model (e.g., Remote, Hybrid, On-site) and the employment type (e.g., Full-time, Contract). Combine them if multiple are found.
+- You MUST provide a 2-3 sentence summary for the 'description' field. It cannot be empty.
 
 Return ONLY a valid JSON object with the following structure:
 {{
