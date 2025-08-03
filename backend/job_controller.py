@@ -45,6 +45,11 @@ class JobUpdate(BaseModel):
     description: Optional[str] = None
     notes: Optional[str] = None
 
+class JobWorkflowRequest(BaseModel):
+    url: str
+    html_content: str
+    title: Optional[str] = None
+
 class JobResponse(JobBase):
     id: int
     user_id: int
@@ -82,6 +87,49 @@ def create_job(job: JobCreate, current_user: dict = Depends(get_current_user), d
         return created_job
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/workflow", response_model=JobResponse)
+def job_creation_workflow(
+    request_data: JobWorkflowRequest, 
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Manages the entire job creation workflow from a single API call.
+    1. Pre-parses HTML to clean it.
+    2. Uses LLM to extract structured data.
+    3. Saves the job offer to the database.
+    """
+    html_parser = HtmlParser()
+    llm_parser = LlmJobParser()
+    service = JobService()
+
+    try:
+        # 1. Pre-parse HTML
+        pre_parsed_data = html_parser.preparse_html(request_data.html_content, request_data.url)
+        if not pre_parsed_data or not pre_parsed_data.get("content"):
+            raise HTTPException(status_code=400, detail="Could not extract content from HTML.")
+
+        # 2. Use LLM to extract structured data
+        extracted_data = llm_parser.parse_job_listing(
+            parsed_text=pre_parsed_data["content"],
+            url=request_data.url,
+            title=request_data.title,
+            portal=pre_parsed_data.get("portal")
+        )
+
+        # 3. Save the job offer
+        created_job = service.create_job(
+            db=db,
+            user_id=current_user["id"],
+            job_data=extracted_data
+        )
+        return created_job
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in job creation workflow: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during the job creation workflow.")
 
 @router.get("/", response_model=List[JobResponse])
 def get_jobs(
