@@ -26,37 +26,28 @@ class HtmlParser:
                 "container": ".jobsearch-ViewJobLayout-jobDisplay",
                 "description_container": ".jobsearch-JobComponent-description",
                 "job_details": ".jobsearch-jobDescriptionText",
-                "job_title": ".jobsearch-JobInfoHeader-title",
+                "job_title": ".jcs-JobTitle css-1baag51 eu4oa1w0",
                 "company": ".jobsearch-InlineCompanyRating-companyName",
-                "location": ".jobsearch-JobInfoHeader-subtitle .jobsearch-JobInfoHeader-locationName",
+                "location": ".css-fa4tq9 eu4oa1w0",
                 "job_type": ".jobsearch-JobDescriptionSection-sectionItem .jobsearch-JobDescriptionSection-sectionItemKey:contains('Job type') + span"
             },
             "glassdoor": {
                 "container": ".JobDetails_jobDetailsContainer__y9P3L, .jobView, .jobDescriptionContent, [data-test='jobDesc']",
-                "description_container": ".desc, .jobDescriptionContent, [data-test='jobDescriptionContent']",
-                "job_details": ".jobDescriptionContent, [data-test='jobDesc']",
-                "job_title": ".job-title, [data-test='jobTitle'], .css-1j389vi, .css-17x2pwl",
+                "description_container": ".JobDetails_jobDescription__uW_fK, .JobDetails_blurDescription__vN7nh",
+                "job_details": ".JobDetails_jobDescription__uW_fK, .JobDetails_blurDescription__vN7nh",
+                "job_title": ".JobCard_jobTitle__GLyJ1",
                 "company": ".employer-name, [data-test='employerName'], .css-16nw49e, .css-87uc0g",
-                "location": ".location, [data-test='location'], .css-56kyx5, .css-1v5elnn",
+                "location": ".JobCard_location__Ds1fM",
                 "job_type": ".employment-info-details, [data-test='employmentType'], .css-1v5elnn, .css-1wh2oi2"
-            },
-            "monster": {
-                "container": "article[data-testid='JobCard'], .jobview-container-styles__JobViewWrapper-sc-59e1f345-0",
-                "description_container": ".indexmodern__DescriptionClamp-sc-9vl52l-38, .jobview-content",
-                "job_details": "p[data-testid='SingleDescription'], .job-description",
-                "job_title": "h3[data-testid='jobTitle'] a, .job-title",
-                "company": "span[data-testid='company'], .name",
-                "location": "span[data-testid='jobDetailLocation'], .location",
-                "job_type": ".job-type"
             },
             "ziprecruiter": {
                 "container": ".panel-body, .job-body",
-                "description_container": ".job-body, .jobDescriptionContent",
-                "job_details": ".wysiwyg, .jobDescriptionContent",
-                "job_title": "h1.u-mv--remove, .jobTitle",
-                "company": ".text-primary.text-large, .hiring-company",
-                "location": ".fa-map-marker-alt + span, .location",
-                "job_type": ".fa-hourglass + span, .job-type"
+                "description_container": ".panel-body",
+                "job_details": "",
+                "job_title": "",
+                "company": "",
+                "location": "",
+                "job_type": ""
             }
         }
         
@@ -207,50 +198,29 @@ class HtmlParser:
         
     def _extract_domain(self, url: str) -> str:
         """
-        Extract and normalize domain from URL, handling different TLDs for the same site.
-        Returns the base domain (e.g., 'linkedin' from 'linkedin.es' or 'linkedin.com')
-        if it matches a known platform, otherwise returns the full domain.
+        Extracts the portal name from a URL by checking against a list of known job platforms.
+        Handles various subdomains and TLDs (e.g., 'es.indeed.com' -> 'indeed').
         """
         try:
             parsed_url = urlparse(url)
+            # e.g., 'es.indeed.com' from 'https://es.indeed.com/jobs?q=python'
             domain = parsed_url.netloc.lower()
-            
-            # Remove www. if present
-            if domain.startswith('www.'):
-                domain = domain[4:]
-                
-            # Remove port if present
-            domain = domain.split(':')[0]
-            
-            # Known platform domains and their base names
-            domain_mapping = {
-                'linkedin.com': 'linkedin',
-                'linkedin.': 'linkedin',  # Catches all linkedin.* TLDs
-                'indeed.com': 'indeed',
-                'indeed.': 'indeed',      # Catches all indeed.* TLDs
-                'glassdoor.com': 'glassdoor',
-                'glassdoor.': 'glassdoor', # Catches all glassdoor.* TLDs
-                'monster.com': 'monster',
-                'monster.': 'monster',    # Catches all monster.* TLDs
-                'ziprecruiter.com': 'ziprecruiter',
-                'ziprecruiter.': 'ziprecruiter'  # Catches all ziprecruiter.* TLDs
-            }
-            
-            # First check for direct matches
-            if domain in domain_mapping:
-                return domain_mapping[domain]
-                
-            # Then check for TLD variations (e.g., linkedin.co.uk, linkedin.es)
-            for domain_pattern, base_name in domain_mapping.items():
-                if domain_pattern.endswith('.') and domain.startswith(domain_pattern):
-                    return base_name
-                    
-            # Special case for LinkedIn subdomains (e.g., www.linkedin.com)
-            if 'linkedin.com' in domain:
-                return 'linkedin'
-                    
-            # For unknown domains, return the main part (before first dot)
-            return domain.split('.')[0] if '.' in domain else domain
+
+            # Split the domain into parts
+            domain_parts = domain.split('.')
+
+            # Check if any part of the domain matches a known platform
+            for part in domain_parts:
+                if part in self.job_platforms:
+                    return part
+
+            # If no match is found, return the second-to-last part as a fallback (e.g., 'google' from 'jobs.google.com')
+            if len(domain_parts) >= 2:
+                return domain_parts[-2]
+
+            # Otherwise, return the full domain
+            return domain
+
             
         except Exception as e:
             print(f"Error extracting domain from {url}: {str(e)}")
@@ -337,28 +307,6 @@ class HtmlParser:
                 result["job_details_html"] = str(job_details)
             
             return result
-            
-            # If we couldn't find the description container, try to extract basic info from the page
-            container = soup.select_one(platform_selectors.get("container", ""))
-            if container:
-                # Store the HTML of the container
-                result["html_container"] = str(container)
-                # Also extract text for backward compatibility
-                result["content"] = container.get_text(separator='\n', strip=True)
-                if len(result["content"]) > 10000:
-                    result["content"] = result["content"][:10000]
-                
-                # Extract key elements directly FROM WITHIN THE CONTAINER
-                # This ensures we're searching within the container, not the entire document
-                for field, selector in platform_selectors.items():
-                    if field not in ["container", "description_container", "job_details"]:
-                        # Search within the container element, not the entire document
-                        element = container.select_one(selector)
-                        if element:
-                            result["structured_data"][field] = element.get_text(strip=True)
-            
-            return result
-        
         # Fallback for other known portals that don't have specific parsing logic yet
         else:
             return self._parse_generic_portal(soup)
