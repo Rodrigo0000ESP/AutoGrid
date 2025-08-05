@@ -11,22 +11,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        // Clear any previous errors
         errorDiv.textContent = "";
+        errorDiv.style.display = "none";
+        errorDiv.className = "";
+        
         const username = form.elements["username"]?.value.trim() || "";
         const password = form.elements["password"]?.value.trim() || "";
 
         if (!username || !password) {
             errorDiv.textContent = "Please complete username and password.";
-            errorDiv.style.color = "red";
+            errorDiv.className = "message error";
+            errorDiv.style.display = "block";
             return;
         }
 
         try {
             await login({ username, password });
+            // No need to show any message on success, just redirect
             window.location.href = "../home/home.html";
         } catch (err) {
             errorDiv.textContent = err.message || "Login failed. Please try again.";
-            errorDiv.style.color = "red";
+            errorDiv.className = "message error";
+            errorDiv.style.display = "block";
         }
     });
 });

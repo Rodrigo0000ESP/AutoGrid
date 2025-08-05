@@ -49,6 +49,7 @@ body > .container {
   z-index: 1000;
   min-width: 200px;
   text-align: center;
+  display: none; /* Hidden by default */
 }
 
 .message.success {
@@ -177,6 +178,7 @@ button:active, button[type="submit"]:active {
   margin-top: 10px;
   font-size: 0.85rem;
   text-align: center;
+  display: none; /* Hidden by default */
 }
 .error {
   color: #dc2626;

@@ -13,8 +13,10 @@ document.querySelectorAll('#forgotPasswordLink').forEach(link => {
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
+  // Clear any previous messages
   messageDiv.textContent = '';
-  messageDiv.className = 'message';
+  messageDiv.className = '';
+  messageDiv.style.display = 'none';
   
   // Get field values
   const username = document.getElementById('username').value;
@@ -25,6 +27,7 @@ form.addEventListener('submit', async (e) => {
   if (password !== confirmPassword) {
     messageDiv.textContent = 'Passwords do not match';
     messageDiv.className = 'message error';
+    messageDiv.style.display = 'block';
     return;
   }
 
@@ -32,6 +35,7 @@ form.addEventListener('submit', async (e) => {
     await register({ username, email, password });
     messageDiv.textContent = 'Registration successful! Redirecting to home page...';
     messageDiv.className = 'message success';
+    messageDiv.style.display = 'block';
     form.reset();
     setTimeout(() => {
       window.location.href = '../home/home.html';
@@ -39,5 +43,6 @@ form.addEventListener('submit', async (e) => {
   } catch (err) {
     messageDiv.textContent = err.message || 'Error during registration';
     messageDiv.className = 'message error';
+    messageDiv.style.display = 'block';
   }
 });
