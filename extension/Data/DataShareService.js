@@ -1,150 +1,74 @@
 // API URL para las peticiones al backend
-export const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8000";
+
+// Known job portals (moved from constants for compatibility)
+const KNOWN_PORTALS = [
+    "linkedin",
+    "indeed", 
+    "glassdoor",
+    "monster",
+    "ziprecruiter"
+];
 
 /**
  * Saves a job offer in the backend with the HTML content of the current page.
  * @param {Object} offer - { title, url }
  * @returns {Promise<Object>} - Backend response
  */
-export async function saveJobOffer({ title, url }) {
+/**
+ * Saves a job offer in the backend with the HTML content of the current page.
+ * @param {Object} offer - { title, url }
+ * @returns {Promise<Object>} - Backend response
+ */
+/**
+ * Saves a job offer by following the complete flow:
+ * 1. Scrape the web page for content
+ * 2. Parse with HTML parser
+ * 3. Enhance with AI
+ * 4. Save the job with the enhanced data
+ * @param {Object} param0 - Object containing title and url of the job
+ * @returns {Promise<Object>} - The saved job data
+ */
+export async function saveJobOffer({ url, title }) {
     const token = localStorage.getItem("autogrid_token");
     if (!token) throw new Error("Not authenticated");
-    
-    try {
-        // Step 1: Extract relevant HTML content from the active tab
-        const htmlContent = await extractRelevantHTML();
-        console.log("Extracted HTML content successfully");
-        
-        // Step 2: Send to backend for pre-parsing
-        console.log("Sending to pre-parser...");
-        const preParsedResponse = await fetch(`${API_URL}/jobs/preparse-job-offer`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ 
-                title, 
-                url, 
-                html_content: htmlContent 
-            })
-        });
-        
-        if (!preParsedResponse.ok) {
-            const error = await preParsedResponse.json();
-            throw new Error(error.detail || "Error pre-parsing job offer");
-        }
-        
-        const preParsedData = await preParsedResponse.json();
-        console.log("Pre-parsing successful");
-        
-        // Step 3: Send pre-parsed text for AI extraction
-        console.log("Sending to AI parser...");
-        const aiParseResponse = await fetch(`${API_URL}/jobs/parse-job-with-ai`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ 
-                title, 
-                url, 
-                parsed_text: preParsedData.parsed_text 
-            })
-        });
-        
-        if (!aiParseResponse.ok) {
-            const error = await aiParseResponse.json();
-            throw new Error(error.detail || "Error parsing job with AI");
-        }
-        
-        const parsedJobData = await aiParseResponse.json();
-        console.log("AI parsing successful");
-        
-        // Step 4: Save the fully parsed job data
-        console.log("Saving job data...");
-        const saveResponse = await fetch(`${API_URL}/jobs/save`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ 
-                title, 
-                url, 
-                parsed_job_data: parsedJobData.parsed_job_data 
-            })
-        });
-        
-        if (!saveResponse.ok) {
-            const error = await saveResponse.json();
-            throw new Error(error.detail || "Error saving job offer");
-        }
-        
-        return await saveResponse.json();
-        
-    } catch (error) {
-        console.error("Error in job saving workflow:", error);
-        
-        // Fallback to basic job saving if any step fails
-        try {
-            console.log("Falling back to basic job saving...");
-            const response = await fetch(`${API_URL}/jobs/save`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ title, url })
-            });
-            
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || "Error saving offer");
-            }
-            return await response.json();
-        } catch (fallbackError) {
-            console.error("Fallback error:", fallbackError);
-            throw fallbackError;
-        }
-    }
-}
 
-/**
- * Extracts relevant HTML content from the active tab by injecting a content script
- * that identifies and extracts the main job description block
- * @returns {Promise<string>} - Relevant HTML content
- */
-async function extractRelevantHTML() {
-    return new Promise((resolve, reject) => {
-        // Query for the active tab
-        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-            if (!tabs || tabs.length === 0) {
-                reject("No active tab found");
-                return;
-            }
-            
-            const activeTab = tabs[0];
-            
-            // Execute content script to extract relevant HTML
-            chrome.scripting.executeScript({
-                target: { tabId: activeTab.id },
-                function: extractMainContentBlock
-            }, (results) => {
-                if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError.message);
-                    return;
-                }
-                
-                if (!results || results.length === 0) {
-                    reject("Failed to extract HTML content");
-                    return;
-                }
-                
-                resolve(results[0].result);
-            });
+    // Step 1: Get HTML content from the active tab
+    console.log("🔍 Extracting HTML content from the page...");
+    const htmlContent = await getActiveTabHTML();
+    if (!htmlContent) {
+        throw new Error("Failed to extract HTML content from the page");
+    }
+
+    // Step 2: Call the consolidated workflow endpoint
+    console.log("🚀 Sending job offer to the backend for processing...");
+    try {
+        const response = await fetch(`${API_URL}/jobs/workflow`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                url,
+                title,
+                html_content: htmlContent
+            })
         });
-    });
+
+        const savedJob = await response.json();
+
+        if (!response.ok) {
+            throw new Error(savedJob.detail || "Failed to save job offer.");
+        }
+
+        console.log("✅ Successfully processed and saved job offer:", savedJob);
+        return savedJob;
+
+    } catch (error) {
+        console.error("❌ Error during job offer workflow:", error);
+        throw new Error(`Failed to save job offer: ${error.message}`);
+    }
 }
 
 /**

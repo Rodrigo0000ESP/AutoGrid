@@ -45,6 +45,11 @@ class JobUpdate(BaseModel):
     description: Optional[str] = None
     notes: Optional[str] = None
 
+class JobWorkflowRequest(BaseModel):
+    url: str
+    html_content: str
+    title: Optional[str] = None
+
 class JobResponse(JobBase):
     id: int
     user_id: int
@@ -82,6 +87,49 @@ def create_job(job: JobCreate, current_user: dict = Depends(get_current_user), d
         return created_job
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.post("/workflow", response_model=JobResponse)
+def job_creation_workflow(
+    request_data: JobWorkflowRequest, 
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Manages the entire job creation workflow from a single API call.
+    1. Pre-parses HTML to clean it.
+    2. Uses LLM to extract structured data.
+    3. Saves the job offer to the database.
+    """
+    html_parser = HtmlParser()
+    llm_parser = LlmJobParser()
+    service = JobService()
+
+    try:
+        # 1. Pre-parse HTML
+        pre_parsed_data = html_parser.preparse_html(request_data.html_content, request_data.url)
+        if not pre_parsed_data or not pre_parsed_data.get("content"):
+            raise HTTPException(status_code=400, detail="Could not extract content from HTML.")
+
+        # 2. Use LLM to extract structured data
+        extracted_data = llm_parser.parse_job_listing(
+            parsed_text=pre_parsed_data["content"],
+            url=request_data.url,
+            title=request_data.title,
+            portal=pre_parsed_data.get("portal")
+        )
+
+        # 3. Save the job offer
+        created_job = service.create_job(
+            db=db,
+            user_id=current_user["id"],
+            job_data=extracted_data
+        )
+        return created_job
+
+    except Exception as e:
+        import logging
+        logging.error(f"Error in job creation workflow: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during the job creation workflow.")
 
 @router.get("/", response_model=List[JobResponse])
 def get_jobs(
@@ -175,7 +223,6 @@ def preparse_job_offer(
     # Extract data from the request
     html_content = job_data.get("html_content", "")
     url = job_data.get("url", "")
-    title = job_data.get("title", "")
     
     if not html_content:
         raise HTTPException(
@@ -186,17 +233,34 @@ def preparse_job_offer(
     # Pre-parse HTML
     html_parser = HtmlParser()
     parsed_html = html_parser.preparse_html(html_content, url)
+
+    if parsed_html is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to parse HTML content"
+        )
+    if parsed_html.get("structured_data"):
+        structured_data = parsed_html.get("structured_data", {})
+    else:
+        structured_data = { "portal": "To be Determined by LLM", "job_title": "To be Determined by LLM", "company": "To be Determined by LLM", "location": "To be Determined by LLM", "job_type": "To be Determined by LLM" }
     
-    # For backward compatibility, also include parsed_text
     parsed_text = parsed_html.get("content", "")
+
     
-    return {
+    # Create response with all data
+    response_data = {
         "status": "success",
-        "parsed_html": parsed_html,
-        "parsed_text": parsed_text,  # For backward compatibility
+        "parsed_text": parsed_text,
         "url": url,
-        "title": title
+        "portal": structured_data.get("portal", ""),
+        "title": structured_data.get("job_title", ""),
+        "company": structured_data.get("company", ""),
+        "location": structured_data.get("location", ""),
+        "job_type": structured_data.get("job_type", ""),
+        "raw_data": parsed_html  
     }
+    
+    return response_data
 
 @router.post("/parse-job-with-ai", status_code=status.HTTP_200_OK)
 def parse_job_with_ai(
@@ -204,40 +268,23 @@ def parse_job_with_ai(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Parse job offer text using AI to extract structured data
+    Parse job offer using AI to extract structured data.
+    This version prioritizes the structured data extracted by the HTML parser.
     """
-    # Extract data from the request
-    url = job_data.get("url", "")
-    title = job_data.get("title", "")
+    parsed_data = job_data.get("parsed_html", {})
+    title = parsed_data.get("title", "Untitled Position") 
+    url = parsed_data.get("url", "")
+    parsed_text = parsed_data.get("parsed_text", "")    
+    company = parsed_data.get("company", "")
+    location = parsed_data.get("location", "")
+    job_type = parsed_data.get("job_type", "")
+    portal = parsed_data.get("portal", "")
+     
     
-    # Handle all possible input formats
-    parsed_text = job_data.get("parsed_text", "")
-    parsed_html = job_data.get("parsed_html", None)
-    html_content = job_data.get("html_content", "")
-    
-    # If we have raw HTML content but no parsed content, try to parse it
-    if html_content and not parsed_html and not parsed_text:
-        try:
-            html_parser = HtmlParser()
-            parsed_html = html_parser.preparse_html(html_content, url)
-        except Exception as e:
-            print(f"Error pre-parsing HTML: {str(e)}")
-            # Create a basic structure if parsing fails
-            parsed_html = {"content": html_content[:10000], "portal": None}
-    
-    # If we have the old format but not the new format, convert it
-    elif parsed_text and not parsed_html:
-        parsed_html = {"content": parsed_text, "portal": None}
-    # If we have neither, use the title and URL as minimal content
-    elif not parsed_html:
-        minimal_content = f"Job Title: {title}\nURL: {url}"
-        parsed_html = {"content": minimal_content, "portal": None}
-    
-    # Parse job with LLM
     try:
         # Try to use the parser with OpenAI API
         llm_parser = LlmJobParser()
-        parsed_job_data = llm_parser.parse_job_listing(parsed_html, url, title)
+        parsed_job_data = llm_parser.parse_job_listing(parsed_text, url, title,company,location,job_type,portal)
         
         return {
             "status": "success",
@@ -247,7 +294,7 @@ def parse_job_with_ai(
         # If it fails, use test mode
         print(f"Error using LLM parser: {str(e)}. Falling back to test mode.")
         llm_parser = LlmJobParser(test_mode=True)
-        parsed_job_data = llm_parser.parse_job_listing(parsed_html, url, title)
+        parsed_job_data = llm_parser.parse_job_listing(parsed_text, url, title,company,location,job_type)
         
         return {
             "status": "success",
@@ -262,63 +309,49 @@ def save_job_offer(
     db: Session = Depends(get_db)
 ):
     """
-    Save a job offer from the extension
+    Save a job offer from the extension.
+    
+    This endpoint expects the job data to be already parsed by the HTML parser and/or AI parser.
+    The parsing should be handled by the /jobs/preparse-job-offer and /jobs/parse-job-with-ai endpoints.
+    
+    Expected request format:
+    {
+        "position": "Job Title",
+        "company": "Company Name",
+        "location": "Location",
+        "job_type": "Full-time",
+        "description": "Job description...",
+        "salary": "$100,000 - $120,000",
+        "link": "https://example.com/job/123",
+        "status": "Saved"  # Optional, defaults to "Saved"
+    }
     """
     service = JobService()
     
-    # Check if we have parsed job data
-    parsed_job_data = job_data.get("parsed_job_data", {})
-    html_content = job_data.get("html_content", "")
-    
-    # If we have HTML content but no parsed data, try to parse it
-    if html_content and not parsed_job_data:
-        try:
-            # Pre-parse HTML
-            html_parser = HtmlParser()
-            url = job_data.get("url", "")
-            parsed_html = html_parser.preparse_html(html_content, url)
-            
-            # Parse with LLM
-            llm_parser = LlmJobParser()
-            parsed_job_data = llm_parser.parse_job_listing(
-                parsed_html, 
-                url, 
-                job_data.get("title", "")
-            )
-        except Exception as e:
-            print(f"Error parsing job data: {str(e)}")
-            # Continue with basic info if parsing fails
-    
-    # Extract data from the job offer or use parsed data
-    if parsed_job_data:
-        position = parsed_job_data.get("position", job_data.get("title", "Untitled Position"))
-        company = parsed_job_data.get("company", "")
-        location = parsed_job_data.get("location", "")
-        salary = parsed_job_data.get("salary", "")
-        job_type = parsed_job_data.get("job_type", "")
-        description = parsed_job_data.get("description", "")
-        url = parsed_job_data.get("link", job_data.get("url", ""))
-    else:
-        position = job_data.get("title", "Untitled Position")
-        company = ""
-        location = ""
-        salary = ""
-        job_type = ""
-        description = ""
-        url = job_data.get("url", "")
-    
-    # Create job data dictionary
+    # Get the job data, using empty strings as defaults for required fields
     job_dict = {
-        "position": position,
-        "company": company,
-        "location": location,
-        "salary": salary,
-        "job_type": job_type,
-        "description": description,
-        "link": url
+        "position": job_data.get("position") or job_data.get("title") or "Untitled Position",
+        "company": job_data.get("company", ""),
+        "location": job_data.get("location", ""),
+        "salary": job_data.get("salary", ""),
+        "job_type": (job_data.get("job_type") or "Other").strip().title(),
+        "description": job_data.get("description", ""),
+        "link": job_data.get("link") or job_data.get("url", ""),
+        "status": job_data.get("status", JobStatus.SAVED.value),
+        "notes": job_data.get("notes", "")
     }
     
-    # Create a new job with the extracted information
-    job = service.create_job(db, current_user["id"], job_dict)
+    # Ensure job_type is not empty
+    if not job_dict["job_type"]:
+        job_dict["job_type"] = "Other"
     
-    return job
+    # Create the job in the database
+    try:
+        job = service.create_job(db, current_user["id"], job_dict)
+        return job
+    except Exception as e:
+        print(f"Error creating job: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create job: {str(e)}"
+        )
