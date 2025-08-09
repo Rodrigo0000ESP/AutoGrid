@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict
 from BaseRepository import BaseRepository
-from models import Job, JobStatus, JobType
+from models import Job, JobStatus, JobType, UserSubscription
 from datetime import datetime
 
 class JobService:
@@ -11,6 +11,14 @@ class JobService:
     def create_job(self, db: Session, user_id: int, job_data: dict) -> Job:
         """
         Create a new job entry for a user
+        
+        Args:
+            db: Database session
+            user_id: ID of the user creating the job
+            job_data: Dictionary containing job details
+            
+        Returns:
+            Job: The created job object
         """
         # Convert string to enum for job_type if provided
         job_type_enum = None
@@ -22,25 +30,33 @@ class JobService:
         if job_data.get("status"):
             status_enum = JobStatus(job_data["status"])
         
-        # Create job object
-        job = Job(
-            user_id=user_id,
-            position=job_data.get("position", ""),
-            company=job_data.get("company", ""),
-            location=job_data.get("location"),
-            salary=job_data.get("salary"),
-            job_type=job_type_enum,
-            status=status_enum,
-            link=job_data.get("link"),
-            description=job_data.get("description"),
-            notes=job_data.get("notes")
-        )
-        
-        # Add to database
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-        return job
+        try:
+            # Create job object
+            job = Job(
+                user_id=user_id,
+                position=job_data.get("position", ""),
+                company=job_data.get("company", ""),
+                location=job_data.get("location"),
+                salary=job_data.get("salary"),
+                job_type=job_type_enum,
+                status=status_enum,
+                link=job_data.get("link"),
+                description=job_data.get("description"),
+                notes=job_data.get("notes")
+            )
+            
+            # Add to database
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+            return job
+            
+        except Exception as e:
+            db.rollback()
+            raise e
+        except Exception as e:
+            db.rollback()
+            raise e
     
     def get_jobs_by_user(self, db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Job]:
         """

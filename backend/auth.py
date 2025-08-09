@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from models import User
+from models import User, UserSubscription
 from BaseRepository import BaseRepository
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -39,9 +39,18 @@ class AuthRepository(BaseRepository[User]):
         # Si no existe, crear el usuario
         hashed_password = self.get_password_hash(password)
         user = User(username=username, email=email, hashed_password=hashed_password)
-        
+
         try:
             db.add(user)
+            db.flush()  # Usar flush para obtener el ID del usuario antes del commit
+
+            # Crear la suscripción del usuario con el plan gratuito por defecto
+            subscription = UserSubscription(
+                user_id=user.id,
+                status='active'  # Estado inicial como activo
+            )
+            db.add(subscription)
+
             db.commit()
             db.refresh(user)
             return user, None

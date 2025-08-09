@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Text, Enum
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Text, Enum, Boolean, JSON
 from sqlalchemy.orm import relationship
 from BaseRepository import Base
 from pagination import PaginationParams, PaginatedResult
@@ -30,12 +30,16 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String, nullable=False)
+    stripe_customer_id = Column(String, unique=True, nullable=True, index=True)  # ID del cliente en Stripe
     
     # Relationship with password reset requests
     password_resets = relationship("PasswordReset", back_populates="user", cascade="all, delete-orphan")
     
     # Relationship with jobs
     jobs = relationship("Job", back_populates="user", cascade="all, delete-orphan")
+    
+    # Relationship with subscription
+    subscription = relationship("UserSubscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
 
 
 class PasswordReset(Base):
@@ -60,6 +64,34 @@ class PaginatedResult(BaseModel, Generic[T]):
     items: List[T]
     page: int
     size: int
+
+
+class UserSubscription(Base):
+    """Modelo para las suscripciones de usuarios
+    
+    Atributos:
+        user_id: ID del usuario
+        stripe_subscription_id: ID de la suscripción en Stripe
+        status: Estado de la suscripción (active, past_due, canceled, etc.)
+        current_period_start: Inicio del período de facturación actual
+        current_period_end: Fin del período de facturación actual
+        cancel_at_period_end: Si la suscripción se cancelará al final del período
+    """
+    __tablename__ = 'user_subscriptions'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), unique=True, nullable=False)
+    stripe_subscription_id = Column(String(100), unique=True, nullable=True)
+    status = Column(String(20), nullable=False, default='active')  # active, past_due, canceled, unpaid, incomplete, incomplete_expired, trialing
+    current_period_start = Column(DateTime, nullable=True)
+    current_period_end = Column(DateTime, nullable=True)
+    cancel_at_period_end = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship
+    user = relationship("User", back_populates="subscription")
+
 
 class Job(Base):
     __tablename__ = 'jobs'
