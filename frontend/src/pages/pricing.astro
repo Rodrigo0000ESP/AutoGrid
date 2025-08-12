@@ -1,0 +1,201 @@
+---
+import Card from '../components/card.astro';
+import Layout from '../layouts/Layout.astro';
+
+// Import Stripe (will be loaded client-side only)
+const loadStripe = () => import('@stripe/stripe-js').then(mod => mod.loadStripe);
+
+// Get Stripe public key from environment variables
+const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
+---
+
+<!-- Client-side script for handling Stripe Checkout -->
+<script>
+  // This will only run in the browser
+  if (import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
+    // Check if user is logged in
+    const isLoggedIn = () => {
+      try {
+        return !!localStorage.getItem('token');
+      } catch (error) {
+        console.error('Error checking login status:', error);
+        return false;
+      }
+    };
+
+    // Redirect to login page
+    const redirectToLogin = () => {
+      // Save the current URL to redirect back after login
+      sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+      window.location.href = '/login';
+    };
+
+    // Initialize Stripe client when the script loads
+    const stripePromise = (async () => {
+      try {
+        const { loadStripe } = await import('@stripe/stripe-js');
+        return await loadStripe(import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY);
+      } catch (error) {
+        console.error('Error loading Stripe:', error);
+        return null;
+      }
+    })();
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Handle checkout button clicks
+      document.addEventListener('click', async (event: MouseEvent) => {
+        const target = event.target as HTMLElement | null;
+        const button = target?.closest<HTMLButtonElement>('.checkout-button');
+        
+        if (button) {
+          event.preventDefault();
+          
+          // Check if user is logged in
+          if (!isLoggedIn()) {
+            alert('Please log in to subscribe to a plan.');
+            redirectToLogin();
+            return;
+          }
+          
+          const priceId = button.dataset.priceId;
+          
+          if (!priceId) {
+            console.error('No price ID found on button');
+            alert('Error: Invalid plan selection. Please try again.');
+            return;
+          }
+          
+          // Store original button content before showing loading state
+          const originalButtonText = button.innerHTML;
+          
+          try {
+            // Show loading state
+            button.disabled = true;
+            button.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Processing...';
+            
+            try {
+              // Import and call the createCheckoutSession function
+              const { createCheckoutSession } = await import('../services/subscriptionService');
+              
+              // Create checkout session using the subscription service
+              const { sessionId } = await createCheckoutSession(priceId);
+              
+              // Get Stripe instance
+              const stripe = await stripePromise;
+              if (!stripe) {
+                throw new Error('Failed to load Stripe');
+              }
+              
+              // Redirect to Stripe Checkout
+              const { error } = await stripe.redirectToCheckout({ sessionId });
+              
+              if (error) {
+                throw error;
+              }
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+              console.error('Error during checkout:', errorMessage);
+              alert(errorMessage || 'An error occurred during checkout. Please try again.');
+              throw error; // Re-throw to be caught by the outer catch
+            }
+          } catch (error) {
+            // Error is already handled in the inner catch
+            console.error('Checkout process failed:', error);
+          } finally {
+            // Reset button state
+            if (button) {
+              button.disabled = false;
+              button.innerHTML = originalButtonText || 'Get Started';
+            }
+          }
+        }
+      });
+    });
+  }
+</script>
+
+<Layout title="Pricing | AutoGrid">
+    <div class="bg-gray-50 py-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h1 class="text-4xl font-extrabold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
+                    Simple, transparent pricing
+                </h1>
+                <p class="mt-5 max-w-xl mx-auto text-xl text-gray-500">
+                    Choose the perfect plan for your job search needs. No hidden fees, cancel anytime.
+                </p>
+            </div>
+
+            <div class="mt-12 grid gap-8 max-w-6xl mx-auto lg:grid-cols-3 lg:gap-8">
+                <!-- Free Plan -->
+                <Card 
+                    title="Free"
+                    price={0}
+                    features={[
+                        'Up to 15 job extractions per month',
+                        'Store up to 10 job offers',
+                        'Basic extraction and visualization',
+                        'Limited search and filtering',
+                        'Email support'
+                    ]}
+                />
+
+                <!-- Pro Plan -->
+                <Card 
+                    title="Pro"
+                    price={9.99}
+                    popular={true}
+                    features={[
+                        'Up to 250 job extractions per month',
+                        'Store up to 200 job offers',
+                        'All Free features included',
+                        'Advanced search and filtering',
+                        'Edit and customize job data',
+                        'Export to CSV/JSON',
+                        'Priority email support'
+                    ]}
+                >
+                    <button 
+                        class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        data-price-id="price_abc123"
+                    >
+                        Get Started
+                    </button>
+                    {/* Replace price_abc123 with your actual Stripe Price ID */}
+                </Card>
+
+                <!-- Unlimited Plan -->
+                <Card 
+                    title="Unlimited"
+                    price={14.99}
+                    features={[
+                        'Unlimited job extractions',
+                        'Unlimited job storage',
+                        'All Pro features included',
+                        'Custom alerts and notifications',
+                        'Advanced analytics dashboard',
+                        'API access',
+                        'Priority support with phone',
+                        'Custom integrations'
+                    ]}
+                >
+                    <button 
+                        class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        data-price-id="price_xyz789"
+                    >
+                        Get Started
+                    </button>
+                    {/* Replace price_xyz789 with your actual Stripe Price ID */}
+                </Card>
+            </div>
+
+            <div class="mt-16 text-center">
+                <h2 class="text-2xl font-bold text-gray-900">Need something custom?</h2>
+                <p class="mt-2 text-lg text-gray-600">Contact us for enterprise solutions and custom integrations.</p>
+                <a href="/contact" class="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200">
+                    Contact Sales
+                </a>
+            </div>
+        </div>
+    </div>
+</Layout>

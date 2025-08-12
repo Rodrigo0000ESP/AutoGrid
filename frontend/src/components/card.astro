@@ -1,0 +1,42 @@
+---
+import global from '../styles/global.css';
+
+interface Props {
+  title: string;
+  price: number;
+  features: string[];
+  popular?: boolean;
+  buttonClass?: string;
+}
+
+const { title, price, features, popular = false, buttonClass = '' } = Astro.props as Props;
+---
+
+<div class={`relative flex flex-col p-6 bg-white shadow-lg rounded-lg border-2 ${popular ? 'border-blue-500 transform scale-105' : 'border-gray-200'} transition-all duration-300`}>
+    {popular && (
+        <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
+            POPULAR
+        </div>
+    )}
+    <h3 class="text-2xl font-bold text-gray-800 mb-2">{title}</h3>
+    <div class="mb-4">
+        <span class="text-4xl font-bold text-gray-900">€{price}</span>
+        <span class="text-gray-500">/month</span>
+    </div>
+    <ul class="space-y-3 mb-6">
+        {features.map((feature, index) => {
+            const featureId = `feature-${title.toLowerCase()}-${index}`;
+            return (
+                <li id={featureId} class="flex items-center">
+                    <svg class="w-5 h-5 text-green-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span class="text-gray-600">{feature}</span>
+                </li>
+            );
+        })}
+    </ul>
+    <div class="mt-auto">
+        <slot />
+    </div>
+</div>

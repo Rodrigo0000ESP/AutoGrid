@@ -149,7 +149,7 @@ async def webhook_received(
     
     Este endpoint recibe eventos de Stripe para mantener sincronizadas las suscripciones.
     Los eventos manejados incluyen:
-    - checkout.session.completed: Cuando un usuario completa el proceso de pago
+    - customer.subscription.created: Cuando se crea una suscripción
     - customer.subscription.updated: Cuando se actualiza una suscripción
     - customer.subscription.deleted: Cuando se cancela una suscripción
     - invoice.payment_succeeded: Cuando un pago se completa exitosamente

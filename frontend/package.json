@@ -9,8 +9,10 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@stripe/stripe-js": "^7.8.0",
     "@tailwindcss/vite": "^4.1.11",
     "astro": "^5.12.8",
+    "axios": "^1.11.0",
     "tailwindcss": "^4.1.11"
   }
 }
