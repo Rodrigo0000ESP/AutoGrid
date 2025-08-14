@@ -1,0 +1,134 @@
+---
+import global from '../styles/global.css';
+
+// Define the column type
+export interface Column<T> {
+  key: keyof T;
+  header: string;
+  render?: (value: any, row: T) => string | number | HTMLElement;
+  className?: string;
+}
+
+// Define the props
+interface Props<T> {
+  columns: Column<T>[];
+  data: T[];
+  loading?: boolean;
+  error?: string | null;
+  emptyMessage?: string;
+}
+
+// Type for job data
+interface Job {
+  id?: number;
+  position?: string;
+  company?: string;
+  status?: string;
+  job_type?: string;
+  date_added?: string;
+  [key: string]: any; // For any additional properties
+}
+
+// Destructure props with defaults
+const { 
+  columns = [], 
+  data = [] as Job[], 
+  loading = false, 
+  error = null,
+  emptyMessage = 'No data available' 
+} = Astro.props as Props<Job>;
+---
+
+<div class="w-full overflow-x-auto rounded-lg shadow-sm">
+  {loading ? (
+    <div class="flex justify-center items-center p-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+      <span class="ml-3">Loading...</span>
+    </div>
+  ) : error ? (
+    <div class="bg-red-50 border-l-4 border-red-500 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-red-700">{error}</p>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <table class="min-w-full divide-y divide-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          {columns.map((column, index) => {
+            // Use a unique ID for each header
+            const headerId = `header-${index}`;
+            return (
+              <th 
+                data-key={headerId}
+                scope="col" 
+                class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+              >
+                {column.header}
+              </th>
+            );
+          })}
+          <th scope="col" class="relative px-6 py-3">
+            <span class="sr-only">Actions</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody class="bg-white divide-y divide-gray-200">
+        {data.length > 0 ? (
+          data.map((row, rowIndex) => (
+            <tr data-row-id={`row-${rowIndex}`} class="hover:bg-gray-50" data-job-id={row.id}>
+              {columns.map((column, colIndex) => (
+                <td 
+                  data-cell-id={`cell-${rowIndex}-${colIndex}`}
+                  class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"
+                  class:list={[column.className]}
+                >
+                  {column.render 
+                    ? column.render(row[column.key as keyof Job], row)
+                    : (row[column.key as keyof Job] ?? '—')
+                  }
+                </td>
+              ))}
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex justify-end space-x-2">
+                  <button 
+                    class="text-blue-600 hover:text-blue-900" 
+                    title="View details" 
+                    onclick={`window.location.href='/jobs/${row.id}'`}
+                  >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  </button>
+                  <button 
+                    class="text-indigo-600 hover:text-indigo-900" 
+                    title="Edit"
+                    onclick={`window.location.href='/jobs/${row.id}/edit'`}
+                  >
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))
+        ) : (
+          <tr>
+            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
+              No data available.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  )}
+</div>
