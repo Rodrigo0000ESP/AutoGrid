@@ -13,12 +13,31 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
 <script>
   // This will only run in the browser
   if (import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
-    // Check if user is logged in
+    // Check if user is logged in with detailed debugging
     const isLoggedIn = () => {
       try {
-        return !!localStorage.getItem('token');
+        const token = localStorage.getItem('autogrid_token');
+        console.log('Auth Token from localStorage:', token ? 'Token exists' : 'No token found');
+        
+        if (token) {
+          try {
+            // Try to parse the token to check if it's valid
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const isExpired = payload.exp * 1000 < Date.now();
+            console.log('Token payload:', {
+              userId: payload.sub,
+              expiresAt: new Date(payload.exp * 1000).toISOString(),
+              isExpired: isExpired ? 'EXPIRED' : 'VALID'
+            });
+            return !isExpired;
+          } catch (parseError) {
+            console.error('Error parsing token:', parseError);
+            return false;
+          }
+        }
+        return false;
       } catch (error) {
-        console.error('Error checking login status:', error);
+        console.error('Error accessing localStorage:', error);
         return false;
       }
     };
@@ -78,20 +97,14 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
               const { createCheckoutSession } = await import('../services/subscriptionService');
               
               // Create checkout session using the subscription service
-              const { sessionId } = await createCheckoutSession(priceId);
+              const { url } = await createCheckoutSession(priceId);
               
-              // Get Stripe instance
-              const stripe = await stripePromise;
-              if (!stripe) {
-                throw new Error('Failed to load Stripe');
+              if (!url) {
+                throw new Error('No checkout URL returned');
               }
               
-              // Redirect to Stripe Checkout
-              const { error } = await stripe.redirectToCheckout({ sessionId });
-              
-              if (error) {
-                throw error;
-              }
+              // Redirect to the Stripe Checkout URL directly
+              window.location.href = url;
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
               console.error('Error during checkout:', errorMessage);
@@ -157,7 +170,7 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
                 >
                     <button 
                         class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        data-price-id="price_abc123"
+                        data-price-id="price_1RvOhVFmG9X9SvcMlqpOu2rZ"
                     >
                         Get Started
                     </button>
@@ -181,7 +194,7 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
                 >
                     <button 
                         class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        data-price-id="price_xyz789"
+                        data-price-id="price_1RvkGDFmG9X9SvcMZDKDWfxT"
                     >
                         Get Started
                     </button>

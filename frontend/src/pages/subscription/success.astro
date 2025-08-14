@@ -1,0 +1,83 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Get the session ID from the URL
+const sessionId = Astro.url.searchParams.get('session_id');
+---
+
+<Layout title="Subscription Successful | AutoGrid">
+    <div class="min-h-screen bg-gradient-to-br from-blue-50 to-white">
+        <div class="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <!-- Header Section -->
+                <div class="px-8 py-12 text-center sm:px-12">
+                    <div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-green-100 mb-6">
+                        <svg class="h-14 w-14 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                    </div>
+                    
+                    <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                        Welcome to AutoGrid Pro! 🎉
+                    </h1>
+                    
+                    <p class="text-xl text-gray-600">
+                        Your subscription is now active. Start exploring your new features!
+                    </p>
+                </div>
+                
+                <!-- Features Grid -->
+                <div class="grid md:grid-cols-2 gap-6 p-8 bg-gray-50">
+                    <div class="flex items-start p-6 bg-white rounded-xl shadow-sm">
+                        <svg class="h-6 w-6 text-blue-600 mr-4 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">Full Access</h3>
+                            <p class="text-gray-600 mt-1">Unlock all premium features</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-start p-6 bg-white rounded-xl shadow-sm">
+                        <svg class="h-6 w-6 text-blue-600 mr-4 mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                            <h3 class="font-semibold text-gray-900">24/7 Support</h3>
+                            <p class="text-gray-600 mt-1">We're here to help</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- CTA Section -->
+                <div class="px-8 py-10 text-center">
+                    <a href="/dashboard" class="inline-flex items-center px-8 py-4 border border-transparent text-base font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-colors duration-200">
+                        Go to Dashboard
+                        <svg class="ml-2 -mr-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                        </svg>
+                    </a>
+                    
+                    <p class="mt-4 text-sm text-gray-500">
+                        Need help? <a href="/support" class="font-medium text-blue-600 hover:text-blue-500">Contact our support team</a>
+                    </p>
+                    
+                    {/* Session ID (for debugging) */}
+                    {sessionId && (
+                        <div class="mt-8 p-4 bg-gray-50 rounded-lg text-sm text-gray-500 text-left">
+                            <p class="font-medium text-xs text-gray-400 mb-1">REFERENCE ID</p>
+                            <p class="font-mono text-sm break-all">{sessionId}</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const sessionId = new URLSearchParams(window.location.search).get('session_id');
+        console.log('Success page loaded with session ID:', sessionId || 'none');
+    });
+</script>

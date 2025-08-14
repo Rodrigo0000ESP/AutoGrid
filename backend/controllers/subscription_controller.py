@@ -12,7 +12,7 @@ from BaseRepository import BaseRepository
 router = APIRouter(prefix="/subscription", tags=["subscription"])
 
 # Obtener la URL del frontend desde las variables de entorno
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')  # Valor por defecto para desarrollo
 
 @router.get("/plans")
 async def get_available_plans():

@@ -1,0 +1,104 @@
+---
+import Layout from '../../layouts/Layout.astro';
+
+// Get the error details from the URL
+const errorMessage = Astro.url.searchParams.get('message') || 'Your payment could not be processed.';
+const errorCode = Astro.url.searchParams.get('code') || 'payment_failed';
+---
+
+<Layout title="Payment Failed | AutoGrid">
+    <div class="min-h-screen bg-gradient-to-br from-red-50 to-white">
+        <div class="max-w-4xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
+            <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+                <!-- Header Section -->
+                <div class="px-8 py-12 text-center sm:px-12">
+                    <div class="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-red-100 mb-6">
+                        <svg class="h-14 w-14 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </div>
+                    
+                    <h1 class="text-4xl font-bold text-gray-900 mb-4">
+                        Payment Failed 😕
+                    </h1>
+                    
+                    <p class="text-xl text-gray-600 mb-6">
+                        {errorMessage}
+                    </p>
+                    
+                    <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-8">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700">
+                                    Error code: <span class="font-mono">{errorCode}</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Next Steps -->
+                <div class="px-8 py-12 bg-gray-50">
+                    <h2 class="text-2xl font-bold text-center text-gray-900 mb-8">
+                        What to do next
+                    </h2>
+                    
+                    <div class="grid gap-6 md:grid-cols-2">
+                        <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 bg-blue-100 rounded-md p-3">
+                                    <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900">Try a different payment method</h3>
+                                    <p class="mt-1 text-gray-600">Use a different credit/debit card or payment method.</p>
+                                    <div class="mt-4">
+                                        <a href="/pricing" class="text-blue-600 hover:text-blue-500 font-medium">
+                                            Try again →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="p-6 bg-white rounded-xl shadow-sm border border-gray-100">
+                            <div class="flex items-start">
+                                <div class="flex-shrink-0 bg-green-100 rounded-md p-3">
+                                    <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                <div class="ml-4">
+                                    <h3 class="text-lg font-medium text-gray-900">Contact support</h3>
+                                    <p class="mt-1 text-gray-600">Having trouble? Our team is here to help you out.</p>
+                                    <div class="mt-4">
+                                        <a href="/contact" class="text-blue-600 hover:text-blue-500 font-medium">
+                                            Get help →
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-10 text-center">
+                        <a href="/" class="text-gray-600 hover:text-gray-900 font-medium">
+                            ← Return to home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</Layout>
+
+<style>
+    /* Add any custom styles here if needed */
+</style>

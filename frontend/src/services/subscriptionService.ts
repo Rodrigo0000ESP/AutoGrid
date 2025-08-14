@@ -16,7 +16,7 @@ api.interceptors.request.use(
     // Only try to access localStorage in the browser environment
     if (typeof window !== 'undefined') {
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('autogrid_token');
         console.log('JWT Token from localStorage:', token ? 'Token found' : 'No token found');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
@@ -98,16 +98,26 @@ export const getPlans = async () => {
 /**
  * Create a checkout session for a plan
  * @param {string} priceId - Stripe price ID
- * @returns {Promise<{sessionId: string}>} Checkout session details
+ * @returns {Promise<{url: string}>} Checkout session details
  */
-export const createCheckoutSession = async (priceId: string) => {
+export async function createCheckoutSession(priceId: string): Promise<{ url: string }> {
   console.log('Creating checkout session for price ID:', priceId);
   try {
     const response = await api.post('/subscription/create-checkout-session', {
       price_id: priceId
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
     });
     console.log('Checkout session created successfully:', response.data);
-    return response.data.data;
+    
+    // Return the URL from the nested data object to match the backend response structure
+    if (response.data && response.data.data && response.data.data.url) {
+      return { url: response.data.data.url };
+    } else {
+      throw new Error('No checkout URL returned in response');
+    }
   } catch (error: any) {
     console.error('Error creating checkout session:', {
       message: error.message,

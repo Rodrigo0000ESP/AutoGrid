@@ -211,7 +211,6 @@ class StripeService:
                 
             print(f"Processing webhook event: {event['type']}")
             
-            # Route the event to the appropriate handler
             if event['type'] == 'checkout.session.completed':
                 return cls._handle_checkout_session_completed(db, event['data']['object'])
                 
@@ -252,8 +251,21 @@ class StripeService:
                 return False
                 
             # Get the full subscription object from Stripe
-            stripe_sub = stripe.Subscription.retrieve(subscription_id)
-            customer_id = stripe_sub.customer
+            stripe_sub = stripe.Subscription.retrieve(subscription_id, expand=['latest_invoice'])
+            customer_id = stripe_sub.get('customer')
+            
+            if not customer_id:
+                print("No customer ID found in subscription")
+                return False
+                
+            # Debug log the subscription object structure
+            print(f"Stripe subscription object: {json.dumps(stripe_sub, default=str)}")
+            print(f"Current period start: {stripe_sub.get('current_period_start', 'N/A')}")
+            print(f"Current period end: {stripe_sub.get('current_period_end', 'N/A')}")
+            
+            latest_invoice = stripe_sub.get('latest_invoice')
+            if latest_invoice:
+                print(f"Latest invoice period: {latest_invoice.get('period_start', 'N/A')} to {latest_invoice.get('period_end', 'N/A')}")
             
             # Find the user by Stripe customer ID
             user = db.query(User).filter(
@@ -270,22 +282,97 @@ class StripeService:
             ).first()
             
             if not subscription:
-                subscription = UserSubscription(user_id=user.id)
+                print(f"Creating new subscription for user {user.id}")
+                subscription = UserSubscription(
+                    user_id=user.id,
+                    status='active',  # Default status
+                    created_at=datetime.utcnow(),
+                    updated_at=datetime.utcnow()
+                )
                 db.add(subscription)
+                db.flush()  # Ensure we have an ID
+                print(f"Created subscription with ID: {subscription.id}")
             
-            # Update subscription details
-            subscription.stripe_subscription_id = subscription_id
-            subscription.status = stripe_sub.status
-            subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-            subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
-            subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
+            print(f"Updating subscription with data from Stripe: {stripe_sub}")
+            
+            # Get period dates from the subscription
+            current_period_start = stripe_sub.get('current_period_start')
+            current_period_end = stripe_sub.get('current_period_end')
+            
+            # If not found at subscription level, try to get from items
+            if not current_period_start and 'items' in stripe_sub and 'data' in stripe_sub['items'] and stripe_sub['items']['data']:
+                item = stripe_sub['items']['data'][0]
+                if 'current_period_start' in item:
+                    current_period_start = item['current_period_start']
+                if 'current_period_end' in item:
+                    current_period_end = item['current_period_end']
+                
+                # If still not found, try the period object
+                if not current_period_start and 'period' in item:
+                    current_period_start = item['period'].get('start')
+                    current_period_end = item['period'].get('end')
+            
+            # Final fallback to latest_invoice
+            if not current_period_start and latest_invoice:
+                current_period_start = latest_invoice.get('period_start')
+                current_period_end = latest_invoice.get('period_end')
+                
+                # Check invoice lines if still not found
+                if not current_period_start and 'lines' in latest_invoice and 'data' in latest_invoice['lines'] and latest_invoice['lines']['data']:
+                    line = latest_invoice['lines']['data'][0]
+                    if 'period' in line:
+                        current_period_start = line['period'].get('start')
+                        current_period_end = line['period'].get('end')
+            
+            print(f"Resolved period dates - Start: {current_period_start}, End: {current_period_end}")
+            print(f"Current time: {datetime.utcnow()}")
+            
+            # Update subscription fields
+            subscription.stripe_subscription_id = subscription_id or subscription.stripe_subscription_id
+            subscription.status = stripe_sub.get('status', subscription.status or 'active')
+            
+            # Update period dates if available
+            if current_period_start is not None:
+                # Handle both Unix timestamps and datetime objects
+                if isinstance(current_period_start, int):
+                    subscription.current_period_start = datetime.fromtimestamp(current_period_start)
+                else:
+                    subscription.current_period_start = current_period_start
+                    
+            if current_period_end is not None:
+                # Handle both Unix timestamps and datetime objects
+                if isinstance(current_period_end, int):
+                    subscription.current_period_end = datetime.fromtimestamp(current_period_end)
+                else:
+                    subscription.current_period_end = current_period_end
+            
+            # Update cancel_at_period_end with fallback to existing value
+            subscription.cancel_at_period_end = stripe_sub.get('cancel_at_period_end', 
+                                                             getattr(subscription, 'cancel_at_period_end', False))
+            
+            # Set plan name if available
+            if 'plan' in stripe_sub and stripe_sub['plan']:
+                plan = stripe_sub['plan']
+                if 'nickname' in plan:
+                    subscription.plan_name = plan['nickname']
+                elif 'product' in plan and isinstance(plan['product'], str):
+                    # If product is just an ID, we can use it as the plan name
+                    subscription.plan_name = plan['product']
+            
+            # Ensure timestamps are set
+            now = datetime.utcnow()
+            if not subscription.created_at:
+                subscription.created_at = now
+            subscription.updated_at = now
             
             db.commit()
-            print(f"Updated subscription for user {user.id}: {subscription_id}")
+            print(f"Successfully updated subscription {subscription_id} for user {user.id}")
             return True
             
         except Exception as e:
             print(f"Error handling checkout.session.completed: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
             if db:
                 db.rollback()
             return False
@@ -296,54 +383,74 @@ class StripeService:
         try:
             # Find the subscription in our database
             subscription = db.query(UserSubscription).filter(
-                UserSubscription.stripe_subscription_id == stripe_sub.id
+                UserSubscription.stripe_subscription_id == stripe_sub['id']
             ).first()
             
             if not subscription:
-                print(f"No local subscription found for Stripe subscription: {stripe_sub.id}")
+                print(f"No local subscription found for Stripe subscription: {stripe_sub['id']}")
                 return False
                 
+            # Get the subscription item (first item in the items array)
+            subscription_item = stripe_sub['items']['data'][0] if stripe_sub['items']['data'] else None
+            
             # Update subscription details
-            subscription.status = stripe_sub.status
-            subscription.current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start)
-            subscription.current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end)
-            subscription.cancel_at_period_end = stripe_sub.cancel_at_period_end
+            subscription.status = stripe_sub['status']
+            
+            # Get period dates from the subscription item if available, otherwise from the root
+            if subscription_item:
+                subscription.current_period_start = datetime.fromtimestamp(subscription_item['current_period_start'])
+                subscription.current_period_end = datetime.fromtimestamp(subscription_item['current_period_end'])
+            else:
+                # Fallback to root level dates if item not found
+                subscription.current_period_start = datetime.fromtimestamp(stripe_sub['current_period_start'])
+                subscription.current_period_end = datetime.fromtimestamp(stripe_sub['current_period_end'])
+                
+            subscription.cancel_at_period_end = stripe_sub['cancel_at_period_end']
             
             db.commit()
-            print(f"Updated subscription {stripe_sub.id} to status: {stripe_sub.status}")
+            print(f"Updated subscription {stripe_sub['id']} to status: {stripe_sub['status']}")
             return True
             
         except Exception as e:
-            print(f"Error handling subscription.updated: {str(e)}")
-            if db:
-                db.rollback()
+            print(f"Error handling subscription update: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            db.rollback()
             return False
     
     @classmethod
     def _handle_subscription_deleted(cls, db: Session, stripe_sub: dict) -> bool:
         """Handle subscription cancellation/deletion from Stripe"""
         try:
-            # Find and update the subscription in our database
+            # Find the subscription in our database
             subscription = db.query(UserSubscription).filter(
-                UserSubscription.stripe_subscription_id == stripe_sub.id
+                UserSubscription.stripe_subscription_id == stripe_sub['id']
             ).first()
             
             if not subscription:
-                print(f"No local subscription found for deleted Stripe subscription: {stripe_sub.id}")
+                print(f"No local subscription found for deleted Stripe subscription: {stripe_sub['id']}")
                 return False
                 
-            # Mark as canceled but keep the record for history
+            # Get the user to update their subscription status
+            user = db.query(User).filter(User.id == subscription.user_id).first()
+            if user:
+                user.subscription_status = 'canceled'
+            
+            # Instead of deleting, update the subscription status to 'canceled'
+            # This preserves the subscription history
             subscription.status = 'canceled'
-            subscription.cancel_at_period_end = True
+            subscription.ended_at = datetime.utcnow()
             
             db.commit()
-            print(f"Marked subscription {stripe_sub.id} as canceled")
+            
+            print(f"Marked subscription {stripe_sub['id']} as canceled in local database")
             return True
             
         except Exception as e:
-            print(f"Error handling subscription.deleted: {str(e)}")
-            if db:
-                db.rollback()
+            print(f"Error handling subscription deletion: {str(e)}")
+            import traceback
+            print(traceback.format_exc())
+            db.rollback()
             return False
     
     @classmethod
