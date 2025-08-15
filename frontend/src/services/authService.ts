@@ -45,3 +45,19 @@ export const isAuthenticated = (): boolean => {
   
   return isValid;
 };
+
+/**
+ * Logout the current user by removing the auth token and any related data
+ */
+export const logout = (): void => {
+  if (typeof window !== 'undefined') {
+    // Remove auth token
+    removeAuthToken();
+    
+    // Clear any other user-related data from localStorage if needed
+    // Example: localStorage.removeItem('user_data');
+    
+    // Force a full page reload to reset the application state
+    window.location.href = '/';
+  }
+};

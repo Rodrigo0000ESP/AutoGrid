@@ -164,6 +164,28 @@ class DataShareService {
     console.log(`[${type.toUpperCase()}] ${message}`);
     // Example: toast[type](message);
   }
+
+  /**
+   * Logout the current user by clearing any cached data and optionally calling a logout endpoint
+   */
+  async logout(): Promise<void> {
+    try {
+      // If you have a logout endpoint on your backend, you can call it here
+      // Example:
+      // await this.fetchWithAuth(`${this.apiBaseUrl}/auth/logout`, {
+      //   method: 'POST',
+      //   headers: this.getHeaders(this.getAuthToken())
+      // });
+      
+      // Clear any cached data in the service if needed
+      // Example: this.clearCache();
+      
+      this.showNotification('Logged out successfully', 'success');
+    } catch (error) {
+      // Even if logout API call fails, we still want to proceed with client-side cleanup
+      console.error('Error during logout:', error);
+    }
+  }
 }
 
 // Export as a singleton instance

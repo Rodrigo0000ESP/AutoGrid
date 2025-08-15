@@ -1,0 +1,41 @@
+---
+// src/pages/logout.astro
+---
+
+<script>
+  // Import the auth service
+  import { logout as authLogout } from '../services/authService';
+  import { dataShareService } from '../services/DataShareService';
+
+  // Client-side logout and redirect
+  (async () => {
+    try {
+      await dataShareService.logout();
+      authLogout();
+    } catch (error) {
+      console.error('Error during logout:', error);
+      authLogout(); // Ensure we still clear local storage even if API fails
+    }
+    // Redirect to home page
+    window.location.href = '/';
+  })();
+</script>
+
+<div class="min-h-screen flex items-center justify-center bg-gray-50">
+  <div class="text-center">
+    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+    <p class="text-gray-600">Cerrando sesión...</p>
+  </div>
+</div>
+
+
+<style>
+  /* Simple loading animation */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+</style>

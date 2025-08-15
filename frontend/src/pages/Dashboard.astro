@@ -20,44 +20,15 @@ if (typeof window !== 'undefined') {
   isAuth = isAuthenticated();
   console.log('Is authenticated:', isAuth);
   console.log('Auth token:', localStorage.getItem('autogrid_token'));
-
-  // Load data if authenticated
-  if (isAuth) {
-    try {
-      jobs = await dataShareService.getJobs();
-    } catch (err) {
-      error = 'Failed to load jobs. Please try again later.';
-      console.error('Error loading jobs:', err);
-    }
-  }
-  
-  isLoading = false;
 }
 ---
 
 <Layout {title} {description}>
-  {isLoading ? (
-    <div class="loading">Loading...
-        {jobs}
-    </div>
-  ) : error ? (
-    <div class="error-message">{error}</div>
-  ) : !isAuth ? (
-    <div class="login-prompt">
-      <h2>Welcome to AutoGrid</h2>
-      <p>Please log in to view your job applications.</p>
-      <a href="/login" class="btn btn-primary">Log In</a>
-    </div>
-  ) : (
-    <div class="dashboard-content">
-      <h2>Your Job Applications</h2>
-      {jobs.length > 0 ? (
-        <DataGrid jobs={jobs} />
-      ) : (
-        <p>No job applications found. Start by adding a new job application.</p>
-      )}
-    </div>
-  )}
+  {isAuth}
+  <div>
+    Jobs
+    <DataGrid jobs={jobs} />
+  </div>
 </Layout>
 
 <style>

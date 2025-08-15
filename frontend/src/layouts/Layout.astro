@@ -1,7 +1,8 @@
 ---
-import Header from '../components/header.astro';
 import Footer from '../components/Footer.astro';
 import '../styles/global.css';
+import Header from '../components/header.astro';
+import AuthHeader from '../components/header_auth.astro';
 
 const { title = 'AutoGrid', description = 'Save job postings with one click and organize your job search.' } = Astro.props;
 ---
@@ -18,10 +19,41 @@ const { title = 'AutoGrid', description = 'Save job postings with one click and 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="font-sans antialiased text-gray-900 bg-white">
-    <Header />
+    <div id="header-authenticated" class="hidden">
+      <AuthHeader />
+    </div>
+    <div id="header-guest">
+      <Header />
+    </div>
+
     <main>
       <slot />
     </main>
     <Footer />
   </body>
 </html>
+
+<script>
+  import { isAuthenticated } from '../services/authService';
+
+  const authHeader = document.getElementById('header-authenticated');
+  const guestHeader = document.getElementById('header-guest');
+
+  if (authHeader && guestHeader) {
+    if (isAuthenticated()) {
+      // Si está autenticado, muestra el header de usuario y oculta el de invitado.
+      authHeader.classList.remove('hidden');
+      guestHeader.classList.add('hidden');
+    } else {
+      // Si no, muestra el de invitado y oculta el de autenticado.
+      authHeader.classList.add('hidden');
+      guestHeader.classList.remove('hidden');
+    }
+  }
+</script>
+
+<style>
+  .hidden {
+    display: none;
+  }
+</style>
