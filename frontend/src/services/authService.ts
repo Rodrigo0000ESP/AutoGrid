@@ -28,8 +28,7 @@ export const removeAuthToken = (): void => {
 };
 
 /**
- * Check if user is authenticated by verifying the token exists
- * The actual token validation will be done by the backend when making requests
+ * Check if user is authenticated by verifying the token exists and is not expired
  */
 export const isAuthenticated = (): boolean => {
   if (typeof window === 'undefined') {
@@ -38,12 +37,33 @@ export const isAuthenticated = (): boolean => {
   }
   
   const token = getAuthToken();
-  console.log('isAuthenticated - Token from storage:', token ? `[exists, length: ${token.length}]` : 'null/undefined');
   
-  const isValid = !!token && token.length > 10;
-  console.log('isAuthenticated - Token validation result:', isValid);
+  if (!token || token.length < 10) {
+    console.log('isAuthenticated: No valid token found');
+    return false;
+  }
   
-  return isValid;
+  try {
+    // Decode the JWT token to check expiration
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const isExpired = payload.exp * 1000 < Date.now();
+    
+    if (isExpired) {
+      console.log('isAuthenticated: Token has expired');
+      // Remove expired token
+      removeAuthToken();
+      return false;
+    }
+    
+    console.log('isAuthenticated: Valid token found');
+    return true;
+    
+  } catch (error) {
+    console.error('Error validating token:', error);
+    // If there's an error decoding the token, remove it
+    removeAuthToken();
+    return false;
+  }
 };
 
 /**

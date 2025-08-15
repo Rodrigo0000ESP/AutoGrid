@@ -4,7 +4,7 @@ export interface Job {
   position: string;
   company: string;
   location: string | null;
-  salary: string | null;
+  salary: string | null | number;
   job_type: 'Full-Time' | 'Part-Time' | 'Contract' | 'Freelance' | 'Internship' | 'Temporary' | 'Other' | null;
   status: 'Saved' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Accepted' | 'Withdrawn';
   link: string | null;
@@ -12,4 +12,5 @@ export interface Job {
   notes: string | null;
   date_added: string;
   date_modified: string;
+  company_logo?: string;
 }

@@ -26,7 +26,7 @@ if (typeof window !== 'undefined') {
       
       // If not on the register page but we have a token, redirect to dashboard
       if (isAuthed && window.location.pathname === '/register') {
-        window.location.href = '/Dashboard';
+        window.location.href = '/dashboard';
         return false;
       }
       return isAuthed;

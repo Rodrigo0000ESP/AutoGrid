@@ -34,22 +34,36 @@ const { title = 'AutoGrid', description = 'Save job postings with one click and 
 </html>
 
 <script>
+  import { setupAuthListener, checkAuthentication } from '../utils/authListener';
   import { isAuthenticated } from '../services/authService';
 
-  const authHeader = document.getElementById('header-authenticated');
-  const guestHeader = document.getElementById('header-guest');
+  // Setup the auth listener for page navigation and storage events
+  setupAuthListener();
 
-  if (authHeader && guestHeader) {
-    if (isAuthenticated()) {
-      // Si está autenticado, muestra el header de usuario y oculta el de invitado.
-      authHeader.classList.remove('hidden');
-      guestHeader.classList.add('hidden');
-    } else {
-      // Si no, muestra el de invitado y oculta el de autenticado.
-      authHeader.classList.add('hidden');
-      guestHeader.classList.remove('hidden');
+  // Initial header setup
+  const updateHeaders = () => {
+    const authHeader = document.getElementById('header-authenticated');
+    const guestHeader = document.getElementById('header-guest');
+    const isAuth = isAuthenticated();
+
+    if (authHeader && guestHeader) {
+      authHeader.classList.toggle('hidden', !isAuth);
+      guestHeader.classList.toggle('hidden', isAuth);
     }
-  }
+  };
+
+  // Initial setup
+  updateHeaders();
+
+  // Update headers on auth state changes
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'autogrid_token') {
+      updateHeaders();
+    }
+  });
+
+  // Check auth status on page load
+  checkAuthentication();
 </script>
 
 <style>

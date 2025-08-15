@@ -138,16 +138,32 @@ class DataShareService {
     try {
       const response = await fetch(input, init);
       
+      if (response.status === 401) {
+        // Token is invalid or expired
+        console.log('Authentication failed, redirecting to logout...');
+        if (typeof window !== 'undefined') {
+          // Redirect to logout page which will handle the cleanup
+          window.location.href = '/logout';
+        }
+        throw new Error('Session expired. Please log in again.');
+      }
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        const errorMessage = errorData.message || response.statusText;
+        const errorMessage = errorData.detail || errorData.message || response.statusText;
         throw new Error(`HTTP error! status: ${response.status}, message: ${errorMessage}`);
       }
       
       return response;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Network error: ${error.message}`);
+        if (error.message.includes('401') || error.message.includes('unauthorized')) {
+          if (typeof window !== 'undefined') {
+            // Redirect to logout which will handle the cleanup
+            window.location.href = '/logout';
+          }
+        }
+        throw error;
       }
       throw new Error('Unknown network error occurred');
     }

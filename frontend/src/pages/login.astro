@@ -27,7 +27,7 @@ if (typeof window !== 'undefined') {
       
       // If not on the login page but we have a token, redirect to dashboard
       if (isAuthed && window.location.pathname === '/login') {
-        window.location.href = '/Dashboard';
+        window.location.href = '/dashboard';
         return false;
       }
       return isAuthed;

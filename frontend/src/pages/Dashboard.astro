@@ -1,34 +1,81 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import DataGrid from "../components/DataGrid.astro";
-import { dataShareService } from "../services/DataShareService";
 import { isAuthenticated } from '../services/authService';
-import type { Job } from '../types/job';
+import DataGrid from '../components/DataGrid';
 
 const title = "Dashboard";
 const description = "Your job applications dashboard";
-
-// Initialize state
-let jobs: Job[] = [];
-let error: string | null = null;
-let isLoading = true;
-let isAuth = false;
-
-// Client-side only code
-if (typeof window !== 'undefined') {
-  // Check authentication
-  isAuth = isAuthenticated();
-  console.log('Is authenticated:', isAuth);
-  console.log('Auth token:', localStorage.getItem('autogrid_token'));
-}
 ---
 
 <Layout {title} {description}>
-  {isAuth}
-  <div>
-    Jobs
-    <DataGrid jobs={jobs} />
+  <div class="dashboard-content">
+    <div id="auth-content">
+      <div class="loading">Checking authentication...</div>
+    </div>
   </div>
+  <div id="data-grid" class="hidden">
+    <DataGrid client:load />
+  </div>
+
+  <script>
+    // Track if we've already handled the auth check
+    let authCheckCompleted = false;
+
+    // Client-side authentication check
+    const handleAuthCheck = async () => {
+      if (authCheckCompleted) return;
+      
+      const authContent = document.getElementById('auth-content');
+      if (!authContent) return;
+      
+      try {
+        // Import authService dynamically to ensure it runs on client-side
+        const { isAuthenticated } = await import('../services/authService.js');
+        
+        const isAuth = isAuthenticated();
+        console.log('Auth status:', isAuth);
+        
+        if (isAuth) {
+          // If authenticated, mount the DataGrid component
+          const dataGrid = document.getElementById('data-grid');
+          if (dataGrid) {
+            dataGrid.classList.remove('hidden');
+            authContent.classList.add('hidden');
+            authCheckCompleted = true; // Mark as complete
+          } else {
+            console.error('DataGrid container not found');
+          }
+        } else {
+          // If not authenticated, show login prompt
+          authContent.innerHTML = `
+            <div class="login-prompt">
+              <h2>Please log in to view your dashboard</h2>
+              <p>You need to be logged in to view and manage your job applications.</p>
+              <a href="/login" class="btn btn-primary">Log In</a>
+            </div>
+          `;
+          authCheckCompleted = true; // Mark as complete
+        }
+      } catch (error) {
+        console.error('Authentication check failed:', error);
+        if (authContent) {
+          authContent.innerHTML = `
+            <div class="error-message">
+              An error occurred while checking your authentication status. Please refresh the page or try again later.
+            </div>
+          `;
+        }
+        authCheckCompleted = true; // Mark as complete even on error
+      }
+    };
+
+    // Run the auth check when the page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', handleAuthCheck);
+    } else {
+      handleAuthCheck();
+    }
+  </script>
 </Layout>
 
 <style>
@@ -60,5 +107,8 @@ if (typeof window !== 'undefined') {
   
   .dashboard-content {
     padding: 1rem;
+  }
+  .hidden {
+    display: none;
   }
 </style>
