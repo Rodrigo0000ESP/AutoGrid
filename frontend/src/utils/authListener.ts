@@ -31,18 +31,15 @@ function checkAuthStatus() {
 }
 
 function handleLogout() {
-  // Don't redirect if already on login or logout pages
-  if (['/login', '/logout'].includes(window.location.pathname)) return;
-  
-  // Clear any existing timeouts to prevent multiple redirects
+  // Clear any existing timeouts to prevent multiple executions
   clearTimeout((window as any).logoutTimer);
   
-  // Use a small delay to allow any other operations to complete
-  (window as any).logoutTimer = setTimeout(() => {
-    // Redirect to logout page which will handle the cleanup
-    const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
-    window.location.href = `/logout?returnUrl=${returnUrl}`;
-  }, 100);
+  // Perform any necessary cleanup here
+  // For example: clear tokens, reset user state, etc.
+  console.log('Logging out...');
+  
+  // Optional: You can add any post-logout logic here
+  // without redirecting the user
 }
 
 // Export a function to manually trigger auth check

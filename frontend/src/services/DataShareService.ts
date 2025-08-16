@@ -18,6 +18,56 @@ class DataShareService {
   }
 
   /**
+   * Get paginated jobs with optional search and filtering
+   * @param page Page number (1-based)
+   * @param pageSize Number of items per page
+   * @param searchTerms Optional search string
+   * @param searchFields Optional array of field names to search in
+   * @param filters Optional key-value pairs for filtering
+   * @returns Promise with paginated jobs and metadata
+   */
+  async getPaginatedJobs(
+    page: number = 1,
+    pageSize: number = 10,
+    searchTerms?: string,
+    searchFields?: string[],
+    filters: Record<string, any> = {}
+  ): Promise<{
+    items: Job[];
+    total: number;
+    page: number;
+    size: number;
+    pages: number;
+  }> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: page.toString(),
+        page_size: pageSize.toString(),
+        ...(searchTerms && { search_terms: searchTerms }),
+        ...(searchFields && { search_fields: searchFields.join(',') }),
+        ...filters,
+      });
+
+      const response = await this.fetchWithAuth(
+        `${this.apiBaseUrl}/jobs?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: this.getHeaders(token),
+        }
+      );
+
+      return await response.json();
+    } catch (error) {
+      this.handleError('Error fetching paginated jobs', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get all jobs for the current user
    * @returns Promise with array of jobs
    */
@@ -75,7 +125,7 @@ class DataShareService {
 
     try {
       const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/${id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: this.getHeaders(token),
         body: JSON.stringify(updates),
       });
@@ -85,6 +135,73 @@ class DataShareService {
       return data;
     } catch (error) {
       this.handleError('Failed to update job', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get counts of jobs by status for the current user
+   * @returns Promise with job status counts
+   */
+  async getJobStatusCounts(): Promise<Record<string, number>> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const url = `${this.apiBaseUrl}/jobs/status`;
+      console.log('Fetching job status counts from:', url);
+      const response = await this.fetchWithAuth(url, {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error response:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.detail || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+      console.log('Received job status counts:', data);
+      return data;
+    } catch (error) {
+      console.error('Error in getJobStatusCounts:', error);
+      this.handleError('Failed to fetch job status counts', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save a job offer from the extension
+   * @param jobData Job data to save
+   * @returns Promise with the created job
+   */
+  async saveJobOffer(jobData: {
+    position: string;
+    company: string;
+    location: string;
+    job_type: string;
+    description: string;
+    salary?: string;
+    link?: string;
+    status?: string;
+    notes?: string;
+  }): Promise<Job> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/save`, {
+        method: 'POST',
+        headers: this.getHeaders(token),
+        body: JSON.stringify(jobData),
+      });
+
+      const data = await response.json();
+      this.showNotification('Job saved successfully!', 'success');
+      return data;
+    } catch (error) {
+      this.handleError('Failed to save job offer', error);
       throw error;
     }
   }

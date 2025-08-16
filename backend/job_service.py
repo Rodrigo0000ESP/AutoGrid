@@ -1,8 +1,12 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any, TypeVar
 from BaseRepository import BaseRepository
 from models import Job, JobStatus, JobType, UserSubscription
+from pagination import PaginatedResult
 from datetime import datetime
+
+# Define a type variable for generic type hints
+T = TypeVar('T', bound=Job)
 
 class JobService:
     def __init__(self):
@@ -138,6 +142,71 @@ class JobService:
         # Add total count
         result["total"] = db.query(Job).filter(Job.user_id == user_id).count()
         return result
+        
+    def get_paginated_jobs(
+        self,
+        db: Session,
+        page: int = 1,
+        page_size: int = 20,
+        search_terms: str = None,
+        search_fields: List[str] = None,
+        **filters: Any
+    ) -> Dict[str, Any]:
+        """
+        Get paginated jobs with optional search and filtering using BaseRepository
+        
+        Args:
+            db: Database session
+            page: Page number (1-based)
+            page_size: Number of items per page
+            search_terms: Search string to filter jobs
+            search_fields: List of field names to search in
+            **filters: Additional filters to apply (field=value)
+            
+        Returns:
+            Dictionary containing jobs and pagination metadata
+        """
+        # Convert filter values from string to appropriate types
+        processed_filters = {}
+        for key, value in filters.items():
+            if value is not None:
+                # Handle status filter
+                if key == 'status' and isinstance(value, str):
+                    try:
+                        processed_filters[key] = JobStatus[value.upper()]
+                    except KeyError:
+                        pass  # Invalid status, skip this filter
+                # Handle job_type filter
+                elif key == 'job_type' and isinstance(value, str):
+                    try:
+                        processed_filters[key] = JobType[value.upper()]
+                    except KeyError:
+                        pass  # Invalid job type, skip this filter
+                # Handle boolean filters
+                elif key in ['is_remote', 'is_hybrid']:
+                    if isinstance(value, str):
+                        processed_filters[key] = value.lower() in ('true', '1', 't')
+                    else:
+                        processed_filters[key] = bool(value)
+                # Handle numeric filters
+                elif key in ['min_salary', 'max_salary', 'experience_years']:
+                    try:
+                        processed_filters[key] = int(value)
+                    except (ValueError, TypeError):
+                        pass  # Invalid number, skip this filter
+                else:
+                    processed_filters[key] = value
+        
+        # Use BaseRepository's get_paginated_from_db method
+        return self.repository.get_paginated_from_db(
+            db=db,
+            page=page,
+            page_size=page_size,
+            search_terms=search_terms,
+            search_fields=search_fields or ["position", "company", "description", "location"],
+            order_by=Job.date_modified.desc(),
+            **processed_filters
+        )
     
     def save_job_offer(self, db: Session, user_id: int, title: str, url: str, html_content: str = None) -> Job:
         """

@@ -1,7 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, TypeVar
 from pydantic import BaseModel
+from pagination import PaginatedResult, PaginationParams
+
+# Define a generic type variable for the response model
+T = TypeVar('T')
+
+# Re-export PaginatedResult as PaginatedResponse for backward compatibility
+PaginatedResponse = PaginatedResult
 from datetime import datetime
 from BaseRepository import SessionLocal
 from job_service import JobService
@@ -55,9 +62,14 @@ class JobResponse(JobBase):
     user_id: int
     date_added: datetime
     date_modified: datetime
+    status: str  # This will be the string value of the status enum
+    job_type: Optional[str] = None  # Add this to match the base model
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 class JobStatusCount(BaseModel):
     Saved: int = 0
@@ -131,26 +143,78 @@ def job_creation_workflow(
         logging.error(f"Error in job creation workflow: {e}")
         raise HTTPException(status_code=500, detail="An error occurred during the job creation workflow.")
 
-@router.get("/", response_model=List[JobResponse])
-def get_jobs(
-    skip: int = 0, 
-    limit: int = 100,
-    status: Optional[str] = None,
+@router.get("/all", response_model=List[JobResponse])
+def get_all_jobs(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all jobs for the current user, with optional filtering by status
+    Get all jobs for the current user (for testing purposes)
     """
     service = JobService()
+    return service.get_jobs_by_user(db, current_user["id"])
+
+@router.get("/")
+async def get_jobs(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    search: str = Query(None, description="Search term"),
+    status: str = Query(None, description="Filter by status"),
+    job_type: str = Query(None, description="Filter by job type"),
+    is_remote: bool = Query(None, description="Filter by remote jobs"),
+    is_hybrid: bool = Query(None, description="Filter by hybrid jobs"),
+    min_salary: int = Query(None, ge=0, description="Filter by minimum salary"),
+    max_salary: int = Query(None, ge=0, description="Filter by maximum salary"),
+    experience_years: int = Query(None, ge=0, description="Filter by years of experience"),
+    company: str = Query(None, description="Filter by company name"),
+    location: str = Query(None, description="Filter by location"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get paginated list of jobs with filtering and search capabilities
     
-    try:
-        if status:
-            return service.get_jobs_by_status(db, current_user["id"], status, skip, limit)
-        
-        return service.get_jobs_by_user(db, current_user["id"], skip, limit)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Valid options are: {[s.value for s in JobStatus]}")
+    - **search**: Search in position, company, description, and location
+    - **status**: Filter by job status (saved, applied, interview, offer, rejected)
+    - **job_type**: Filter by job type (full_time, part_time, contract, internship, temporary)
+    - **is_remote**: Filter remote jobs
+    - **is_hybrid**: Filter hybrid jobs
+    - **min_salary**: Filter by minimum salary
+    - **max_salary**: Filter by maximum salary
+    - **experience_years**: Filter by years of experience
+    - **company**: Filter by company name
+    - **location**: Filter by location
+    """
+    job_service = JobService()
+    
+    # Build filters dictionary
+    filters = {
+        'user_id': current_user["id"],
+        'status': status,
+        'job_type': job_type,
+        'is_remote': is_remote,
+        'is_hybrid': is_hybrid,
+        'min_salary': min_salary,
+        'max_salary': max_salary,
+        'experience_years': experience_years,
+        'company': company,
+        'location': location
+    }
+    
+    # Remove None values
+    filters = {k: v for k, v in filters.items() if v is not None}
+    
+    # Get jobs with pagination, search, and filters
+    result = job_service.get_paginated_jobs(
+        db=db,
+        page=page,
+        page_size=page_size,
+        search_terms=search,
+        **filters
+    )
+    
+    return result
 
 @router.get("/status-counts", response_model=JobStatusCount)
 def get_job_status_counts(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):

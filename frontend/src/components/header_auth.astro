@@ -2,38 +2,94 @@
 import "../styles/global.css";
 ---
 
-<div class="bg-white p-6 px-8 w-full border-b border-gray-300">
-    <div class="flex items-center justify-between">
-        <div class="flex items-center">
-            <a href="/" class="flex items-center gap-2 hover:cursor-pointer no-underline focus:outline-none">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <rect x="4" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="13" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="22" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="4" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="13" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="22" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="4" y="22" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <rect x="13" y="22" width="6" height="6" fill="var(--color-primary)" rx="1" />
-                    <path d="M22 26L26 22L30 26L26 30L22 26Z" fill="var(--color-success)" />
-                </svg>
-                <h1 class="text-font-heading font-bold text-3xl text-[var(--color-primary)]">AutoGrid</h1>
-            </a>
+<div class="bg-white w-full border-b border-gray-300">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <!-- Logo -->
+            <div class="flex-shrink-0">
+                <a href="/" class="flex items-center gap-2 hover:cursor-pointer no-underline focus:outline-none">
+                    <svg class="h-8 w-8" viewBox="0 0 32 32" fill="none">
+                        <rect x="4" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="13" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="22" y="4" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="4" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="13" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="22" y="13" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="4" y="22" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <rect x="13" y="22" width="6" height="6" fill="var(--color-primary)" rx="1" />
+                        <path d="M22 26L26 22L30 26L26 30L22 26Z" fill="var(--color-success)" />
+                    </svg>
+                    <h1 class="text-font-heading font-bold text-2xl sm:text-3xl text-[var(--color-primary)]">AutoGrid</h1>
+                </a>
+            </div>
+
+            <!-- Desktop Navigation -->
+            <div class="hidden md:flex items-center space-x-1 lg:space-x-4">
+                <a href="/dashboard" class="text-gray-600 px-3 py-2 rounded-md text-sm font-medium hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors">
+                    Dashboard
+                </a>
+                <a href="/settings" class="text-gray-600 px-3 py-2 rounded-md text-sm font-medium hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors">
+                    Settings
+                </a>
+                <a href="/support" class="text-gray-600 px-3 py-2 rounded-md text-sm font-medium hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors">
+                    Support
+                </a>
+                <div class="h-6 w-px bg-gray-300 mx-1"></div>
+                <a href="/logout" class="text-gray-600 px-3 py-2 rounded-md text-sm font-medium hover:text-red-600 hover:bg-red-50 transition-colors">
+                    Logout
+                </a>
+            </div>
+
+            <!-- Mobile menu button -->
+            <div class="md:hidden flex items-center">
+                <button type="button" id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[var(--color-primary)]" aria-controls="mobile-menu" aria-expanded="false">
+                    <span class="sr-only">Open main menu</span>
+                    <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+            </div>
         </div>
-        <div class="flex gap-4 items-center">
-            <a href="/dashboard" class="text-gray-600 px-4 py-2 rounded-lg hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors font-medium text-base focus:outline-none">
+    </div>
+
+    <!-- Mobile menu, show/hide based on menu state. -->
+    <div class="hidden" id="mobile-menu">
+        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-white border-t border-gray-200">
+            <a href="/dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[var(--color-primary)] hover:bg-gray-50">
                 Dashboard
             </a>
-            <a href="/settings" class="text-gray-600 px-4 py-2 rounded-lg hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors font-medium text-base focus:outline-none">
+            <a href="/settings" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[var(--color-primary)] hover:bg-gray-50">
                 Settings
             </a>
-            <a href="/support" class="text-gray-600 px-4 py-2 rounded-lg hover:text-[var(--color-primary)] hover:bg-gray-50 transition-colors font-medium text-base focus:outline-none">
+            <a href="/support" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-[var(--color-primary)] hover:bg-gray-50">
                 Support
             </a>
-            <div class="h-8 w-px bg-gray-300 mx-2"></div>
-            <a href="/logout" class="text-gray-600 px-4 py-2 rounded-lg hover:text-red-600 hover:bg-red-50 transition-colors font-medium text-base focus:outline-none">
+            <a href="/logout" class="block px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50">
                 Logout
             </a>
         </div>
     </div>
 </div>
+
+<script is:inline>
+    // Toggle mobile menu for authenticated users
+    document.addEventListener('DOMContentLoaded', () => {
+        const mobileMenu = document.getElementById('mobile-menu');
+        const menuButton = document.getElementById('mobile-menu-button');
+        
+        if (menuButton && mobileMenu) {
+            menuButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (mobileMenu && !mobileMenu.contains(e.target) && 
+                menuButton && !menuButton.contains(e.target)) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+    });
+</script>
