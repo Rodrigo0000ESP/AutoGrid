@@ -89,6 +89,28 @@ class DataShareService {
   }
 
   /**
+   * Get a job by ID
+   * @param id Job ID to fetch
+   * @returns Promise with the job
+   */
+  async getJobById(id: number): Promise<Job> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/${id}`, {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      });
+
+      return await response.json();
+    } catch (error) {
+      this.handleError(`Error fetching job with ID ${id}`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Add a new job
    * @param job Job data to add
    * @returns Promise that resolves when job is added

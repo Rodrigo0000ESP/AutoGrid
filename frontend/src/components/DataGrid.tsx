@@ -15,8 +15,7 @@ const STATUS_OPTIONS: JobStatus[] = [
   'Offer',
   'Rejected',
   'Accepted',
-  'Withdrawn',
-  'Declined'
+  'Withdrawn'
 ];
 
 const DataGrid = () => {
@@ -197,7 +196,7 @@ const DataGrid = () => {
 
   if (isLoading) {
     return (
-      <div className="transition-all duration-300 ease-out transform">
+      <div className="transition-all duration-300 ease-out transform mb-6">
         <div className="flex flex-col items-center justify-center min-h-[300px] space-y-6 p-6 bg-white rounded-lg shadow-sm border border-gray-100">
           <div className="relative w-16 h-16">
             <div className="absolute inset-0 rounded-full bg-blue-50 animate-ping"></div>
@@ -448,7 +447,6 @@ const DataGrid = () => {
               <option value="Rejected">Rejected</option>
               <option value="Accepted">Accepted</option>
               <option value="Withdrawn">Withdrawn</option>
-              <option value="Declined">Declined</option>
             </select>
             <select
               value={jobTypeFilter}
@@ -563,9 +561,19 @@ const DataGrid = () => {
                         })}
                       </div>
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-2 py-2 text-center space-x-1">
+                      <a 
+                        href={`/jobs/${job.id}`}
+                        className="inline-flex items-center p-0.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded"
+                        title="View details"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                          <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                        </svg>
+                      </a>
                       <button 
-                        className="p-0.5 -mr-1 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-0.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded disabled:opacity-50 disabled:cursor-not-allowed"
                         title="View job posting" 
                         onClick={() => job.link && window.open(job.link, '_blank', 'noopener,noreferrer')}
                         disabled={!job.link}
@@ -719,20 +727,37 @@ const DataGrid = () => {
                       year: 'numeric'
                     })}
                   </span>
-                  <button 
-                    onClick={() => job.link && window.open(job.link, '_blank', 'noopener,noreferrer')}
-                    className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md flex items-center transition-colors duration-200"
-                    disabled={!job.link}
-                  >
-                    <span className="hidden sm:inline">View</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:ml-1" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                    </svg>
-                  </button>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.location.href = `/jobs/${job.id}`;
+                      }}
+                      className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-md flex items-center transition-colors duration-200"
+                    >
+                      <span className="hidden sm:inline">Details</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (job.link) window.open(job.link, '_blank', 'noopener,noreferrer');
+                      }}
+                      className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md flex items-center transition-colors duration-200"
+                      disabled={!job.link}
+                    >
+                      <span className="hidden sm:inline">View</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:ml-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
-                </div>
-              ))}
-            </div>
+              </div>
+            ))}
+          </div>
             
             {/* Pagination for Grid View */}
             <div className="px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
