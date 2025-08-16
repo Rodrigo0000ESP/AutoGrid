@@ -6,7 +6,7 @@ export interface Job {
   location: string | null;
   salary: string | null | number;
   job_type: 'Full-Time' | 'Part-Time' | 'Contract' | 'Freelance' | 'Internship' | 'Temporary' | 'Other' | null;
-  status: 'Saved' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Accepted' | 'Withdrawn';
+  status: 'Saved' | 'Applied' | 'Interview' | 'Offer' | 'Rejected' | 'Accepted' | 'Withdrawn' | 'Declined';
   link: string | null;
   description: string | null;
   notes: string | null;
