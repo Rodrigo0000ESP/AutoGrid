@@ -163,14 +163,24 @@ class DataShareService {
 
   /**
    * Get counts of jobs by status for the current user
-   * @returns Promise with job status counts
+   * @returns Promise with job status counts including total
    */
-  async getJobStatusCounts(): Promise<Record<string, number>> {
+  async getJobStatusCounts(): Promise<{
+    Saved: number;
+    Applied: number;
+    Interview: number;
+    Offer: number;
+    Rejected: number;
+    Accepted: number;
+    Withdrawn: number;
+    total: number;
+    [key: string]: number; // Allow other string keys with number values
+  }> {
     this.ensureAuthenticated();
     const token = this.getAuthToken();
 
     try {
-      const url = `${this.apiBaseUrl}/jobs/status`;
+      const url = `${this.apiBaseUrl}/jobs/status-counts`;
       console.log('Fetching job status counts from:', url);
       const response = await this.fetchWithAuth(url, {
         method: 'GET',
@@ -185,7 +195,21 @@ class DataShareService {
 
       const data = await response.json();
       console.log('Received job status counts:', data);
-      return data;
+      
+      // Ensure all expected statuses are present in the response
+      const defaultCounts = {
+        Saved: 0,
+        Applied: 0,
+        Interview: 0,
+        Offer: 0,
+        Rejected: 0,
+        Accepted: 0,
+        Withdrawn: 0,
+        total: 0
+      };
+      
+      // Merge with default counts to ensure all statuses are present
+      return { ...defaultCounts, ...data };
     } catch (error) {
       console.error('Error in getJobStatusCounts:', error);
       this.handleError('Failed to fetch job status counts', error);
@@ -229,23 +253,95 @@ class DataShareService {
   }
 
   /**
-   * Delete a job
-   * @param id Job ID to delete
-   * @returns Promise that resolves when job is deleted
+   * Delete a job by ID
+   * @param jobId ID of the job to delete
+   * @returns Promise that resolves when the job is deleted
    */
-  async deleteJob(id: number): Promise<void> {
+  async deleteJob(jobId: number): Promise<void> {
     this.ensureAuthenticated();
     const token = this.getAuthToken();
 
     try {
-      await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/${id}`, {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/${jobId}`, {
         method: 'DELETE',
-        headers: this.getHeaders(token),
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
 
-      this.showNotification('Job deleted successfully!', 'success');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to delete job');
+      }
+
+      this.showNotification('Job deleted successfully', 'success');
     } catch (error) {
-      this.handleError('Failed to delete job', error);
+      this.handleError('Error deleting job', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new job
+   * @param jobData Job data to create
+   * @returns Created job
+   */
+  async createJob(jobData: Omit<Job, 'id' | 'user_id' | 'date_added' | 'date_modified'>): Promise<Job> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(jobData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create job');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error creating job:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all jobs for the current user
+   * @returns Promise with the deletion result
+   */
+  async deleteAllUserJobs(): Promise<{
+    status: string;
+    message: string;
+    deleted_count: number;
+  }> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Failed to delete all jobs');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error deleting all jobs:', error);
       throw error;
     }
   }
@@ -318,6 +414,56 @@ class DataShareService {
     // Implementation depends on your notification system
     console.log(`[${type.toUpperCase()}] ${message}`);
     // Example: toast[type](message);
+  }
+
+  /**
+   * Export jobs to Excel file
+   * @returns Promise that resolves when the file is downloaded
+   */
+  async exportJobsToExcel(): Promise<void> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/export/excel`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to export jobs to Excel');
+      }
+
+      // Get filename from content-disposition header or use a default name
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = 'jobs_export.xlsx';
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (filenameMatch && filenameMatch[1]) {
+          filename = filenameMatch[1].replace(/['"]/g, '');
+        }
+      }
+
+      // Create blob from response and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      this.showNotification('Jobs exported to Excel successfully!', 'success');
+    } catch (error) {
+      this.handleError('Error exporting jobs to Excel', error);
+      throw error;
+    }
   }
 
   /**

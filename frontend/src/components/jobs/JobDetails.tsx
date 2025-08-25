@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { Dialog } from '@headlessui/react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { dataShareService } from '../../services/DataShareService';
 import type { Job } from '../../types/job';
 
@@ -13,6 +15,8 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -36,6 +40,23 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
 
     fetchJob();
   }, [jobId]);
+
+  const handleDelete = async () => {
+    if (!job) return;
+    
+    setIsDeleting(true);
+    try {
+      await dataShareService.deleteJob(job.id);
+      // Redirect to jobs list after successful deletion
+      window.location.href = '/jobs';
+    } catch (error) {
+      console.error('Error deleting job:', error);
+      setError('Failed to delete job. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -191,7 +212,7 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 bg-gray-50">
-          <div className="flex justify-between items-center">
+          <div className="flex">
             <div>
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {getJobValue(job.position, 'Position')} at {getJobValue(job.company, 'Company')}
@@ -200,16 +221,32 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
                 {getJobValue(job.location, 'Location')} • {getJobValue(job.job_type, 'Full-time')}
               </p>
             </div>
-            {job.link && (
-              <a
-                href={job.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            <div className="flex flex-grow justify-end h-full items-center gap-3">
+              {job.link && (
+                <a
+                  href={job.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-3.5 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-1.5 -ml-0.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-5z" />
+                    <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 112 0v3a4 4 0 01-4 4H5a4 4 0 01-4-4V7a4 4 0 014-4h3a1 1 0 010 2H5z" />
+                  </svg>
+                  View Job Posting
+                </a>
+              )}
+              <button
+                type="button"
+                className="inline-flex items-center px-3.5 py-1.5 text-sm font-medium text-red-600 transition-colors bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                onClick={() => setShowDeleteDialog(true)}
               >
-                View Job Posting
-              </a>
-            )}
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-1.5 -ml-0.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                Delete Job
+              </button>
+            </div>
           </div>
         </div>
 
@@ -380,7 +417,46 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
           </div>
         </form>
       </div>
+      <Dialog
+        open={showDeleteDialog}
+        onClose={() => !isDeleting && setShowDeleteDialog(false)}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-sm rounded bg-white p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-500" aria-hidden="true" />
+              </div>
+              <Dialog.Title className="text-lg font-medium text-gray-900">
+                Delete job application
+              </Dialog.Title>
+            </div>
+            <Dialog.Description className="text-gray-600 mb-6">
+              Are you sure you want to delete the job application for "{job?.position}" at {job?.company}? This action cannot be undone.
+            </Dialog.Description>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
     </div>
   );
 };
-

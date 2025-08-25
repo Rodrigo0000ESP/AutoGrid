@@ -2,7 +2,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import type { Job } from '../types/job';
 import dataShareService from '../services/DataShareService';
 import { isAuthenticated } from '../services/authService';
+import AddJobModal from './jobs/AddJobModal';
 import pkg from 'lodash';
+import { Dialog } from '@headlessui/react';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 const { debounce } = pkg;
 
 // Define possible status values based on Job type
@@ -19,6 +22,7 @@ const STATUS_OPTIONS: JobStatus[] = [
 ];
 
 const DataGrid = () => {
+  // Data and loading states
   const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isStatsLoading, setIsStatsLoading] = useState<boolean>(true);
@@ -36,49 +40,163 @@ const DataGrid = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [jobTypeFilter, setJobTypeFilter] = useState<string>('');
   const [expandedJobId, setExpandedJobId] = useState<number | null>(null);
-  // Debounced search function with smooth loading
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedFetchJobs = useCallback(
-    debounce(async (search: string, status: string, jobType: string, pageNum: number, size: number): Promise<void> => {
-      // Only show loading if it takes more than 300ms
-      const loadingTimeout = setTimeout(() => {
-        setIsLoading(true);
-      }, 300);
+  const [isAddJobModalOpen, setIsAddJobModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
+  const [isDeletingAll, setIsDeletingAll] = useState(false);
+  
+  // Status counts state with type safety
+  type StatusCounts = {
+    Saved: number;
+    Applied: number;
+    Interview: number;
+    Offer: number;
+    Rejected: number;
+    Accepted: number;
+    Withdrawn: number;
+    total: number;
+  };
 
-      try {
-        const authStatus = isAuthenticated();
-        if (!authStatus) {
-          window.location.href = '/login';
-          return;
+  const initialStatusCounts: StatusCounts = {
+    Saved: 0,
+    Applied: 0,
+    Interview: 0,
+    Offer: 0,
+    Rejected: 0,
+    Accepted: 0,
+    Withdrawn: 0,
+    total: 0
+  };
+
+  const [statusCounts, setStatusCounts] = useState<StatusCounts>(initialStatusCounts);
+
+  const handleDeleteAllJobs = async () => {
+    setIsDeletingAll(true);
+    try {
+      await dataShareService.deleteAllUserJobs();
+      setShowDeleteAllConfirm(false);
+      // Refresh the jobs list using the existing debouncedFetchJobs
+      await debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, 1, pageSize);
+      // Show success message
+      alert('All jobs have been successfully deleted.');
+    } catch (error) {
+      console.error('Error deleting all jobs:', error);
+      alert('Failed to delete all jobs. Please try again.');
+    } finally {
+      setIsDeletingAll(false);
+    }
+  };
+
+  const handleDeleteJob = async () => {
+    if (!jobToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      // Optimistic UI update
+      setJobs(prevJobs => prevJobs.filter(job => job.id !== jobToDelete.id));
+      
+      // Delete from database
+      await dataShareService.deleteJob(jobToDelete.id);
+      
+      // Refresh status counts
+      await fetchStatusCounts();
+      setJobToDelete(null);
+    } catch (error) {
+      console.error('Error deleting job:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleJobAdded = async () => {
+    // Reset filters and refresh jobs list
+    setSearchQuery('');
+    setStatusFilter('');
+    setJobTypeFilter('');
+    setCurrentPage(1);
+    await Promise.all([
+      debouncedFetchJobs('', '', '', 1, pageSize),
+      fetchStatusCounts()
+    ]);
+  };
+  // Debounced search function with smooth loading
+  const debouncedFetchJobs = useCallback(
+    debounce((search: string, status: string, jobType: string, pageNum: number, size: number): Promise<void> => {
+      return new Promise(async (resolve) => {
+        let loadingTimeout: NodeJS.Timeout | null = null;
+        let isMounted = true;
+        
+        const cleanup = () => {
+          isMounted = false;
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+          }
+        };
+        
+        try {
+          // Show loading indicator after 100ms if not already showing
+          loadingTimeout = setTimeout(() => {
+            if (isMounted) {
+              setIsLoading(true);
+            }
+          }, 100);
+
+          const authStatus = isAuthenticated();
+          if (!authStatus) {
+            window.location.href = '/login';
+            cleanup();
+            resolve();
+            return;
+          }
+          
+          setError(null);
+          
+          const filters: Record<string, any> = {};
+          if (status) filters.status = status;
+          if (jobType) filters.job_type = jobType;
+          
+          const data = await dataShareService.getPaginatedJobs(
+            pageNum,
+            size,
+            search,
+            ['position', 'company', 'location', 'description'],
+            filters
+          );
+          
+          if (!isMounted) {
+            cleanup();
+            resolve();
+            return;
+          }
+          
+          // Clear the loading timeout since we got our data
+          if (loadingTimeout) {
+            clearTimeout(loadingTimeout);
+          }
+          
+          setJobs(data.items);
+          setTotalItems(data.total);
+          setTotalPages(Math.ceil(data.total / size));
+        } catch (err) {
+          if (!isMounted) {
+            cleanup();
+            resolve();
+            return;
+          }
+          
+          const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
+          console.error('Error fetching jobs:', errorMessage, err);
+          setError(errorMessage);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+            cleanup();
+          }
+          resolve();
         }
-        
-        setError(null);
-        
-        const filters: Record<string, any> = {};
-        if (status) filters.status = status;
-        if (jobType) filters.job_type = jobType;
-        
-        const data = await dataShareService.getPaginatedJobs(
-          pageNum,
-          size,
-          search,
-          ['position', 'company', 'location', 'description'],
-          filters
-        );
-        
-        // Ensure loading is shown for at least 500ms for a smoother experience
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        setJobs(data.items);
-        setTotalItems(data.total);
-        setTotalPages(Math.ceil(data.total / size));
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-        console.error('Error fetching jobs:', errorMessage, err);
-        setError(errorMessage);
-      } finally {
-        setIsLoading(false);
-      }
+      });
     }, 500),
     []
   );
@@ -168,31 +286,100 @@ const DataGrid = () => {
     debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, 1, newSize);
   };
 
+  // Fetch job status counts with proper type safety
+  const fetchStatusCounts = useCallback(async () => {
+    try {
+      const counts = await dataShareService.getJobStatusCounts();
+      
+      // Ensure all statuses are present with 0 as default
+      setStatusCounts(prev => ({
+        ...prev,
+        ...counts,
+        total: counts.total || 0
+      }));
+      return counts;
+    } catch (error) {
+      console.error('Error fetching status counts:', error);
+      // Don't show error to user, just log it
+      return null;
+    } finally {
+      setIsStatsLoading(false);
+    }
+  }, [dataShareService, setStatusCounts, setIsStatsLoading]);
+
+// ... (rest of the code remains the same)
+
   // Initial fetch and when filters change
   useEffect(() => {
-    let loadingTimeout: NodeJS.Timeout | null = setTimeout(() => {
+    const fetchData = async () => {
+      try {
+        await Promise.all([
+          fetchStatusCounts(),
+          debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize)
+        ]);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const loadingTimeout = setTimeout(() => {
       setIsLoading(true);
     }, 100);
     
-    const fetchPromise = debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize);
-    if (fetchPromise) {
-      fetchPromise.finally(() => {
-        if (loadingTimeout) {
-          clearTimeout(loadingTimeout);
-          loadingTimeout = null;
-        }
-      });
-    } else if (loadingTimeout) {
-      clearTimeout(loadingTimeout);
-    }
+    fetchData();
     
     return () => {
-      if (loadingTimeout) {
-        clearTimeout(loadingTimeout);
-      }
+      clearTimeout(loadingTimeout);
       debouncedFetchJobs.cancel();
     };
-  }, [debouncedFetchJobs, searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize]);
+  }, [searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize, fetchStatusCounts, debouncedFetchJobs]);
+
+  // Render status counts as chips
+  const renderStatusChips = () => {
+    if (isStatsLoading) {
+      return (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-8 w-24 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+          ))}
+        </div>
+      );
+    }
+
+    // Use a type assertion to ensure TypeScript knows these are valid keys
+    const statuses = ['Saved', 'Applied', 'Interview', 'Offer', 'Rejected', 'Accepted', 'Withdrawn'] as const;
+    
+    return (
+      <div className="flex flex-wrap gap-2 mb-6">
+        {statuses.map((status) => (
+          <div
+            key={status}
+            onClick={() => setStatusFilter(status === statusFilter ? '' : status)}
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium cursor-pointer transition-colors ${
+              statusFilter === status
+                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100'
+                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            <span>{status}</span>
+            <span className="text-xs bg-white/20 dark:bg-black/20 px-2 py-0.5 rounded-full">
+              {statusCounts[status]}
+            </span>
+          </div>
+        ))}
+        {statusCounts.total > 0 && (
+          <div className="flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700">
+            <span>Total</span>
+            <span className="text-xs bg-white/20 dark:bg-black/20 px-2 py-0.5 rounded-full">
+              {statusCounts.total}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -263,55 +450,6 @@ const DataGrid = () => {
     );
   }
 
-  const hasActiveFilters = statusFilter || jobTypeFilter || searchQuery;
-
-  if (!jobs || jobs.length === 0) {
-    return (
-      <div className="text-center py-12 px-4">
-        {hasActiveFilters ? (
-          <>
-            <div className="text-5xl mb-4">🔍</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs match your filters</h3>
-            <p className="text-gray-500 mb-6">
-              No jobs found matching "{searchQuery}" {statusFilter ? `with status "${statusFilter}"` : ''} {jobTypeFilter ? `and type "${jobTypeFilter}"` : ''}
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-3">
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setStatusFilter('');
-                  setJobTypeFilter('');
-                  setCurrentPage(1);
-                }}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                Clear all filters
-              </button>
-              <button 
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                onClick={() => window.location.href = '/add-job'}
-              >
-                + Add New Job
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="text-5xl mb-4">📋</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
-            <p className="text-gray-500 mb-6">Get started by adding your first job application!</p>
-            <button 
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              onClick={() => window.location.href = '/add-job'}
-            >
-              + Add Your First Job
-            </button>
-          </>
-        )}
-      </div>
-    );
-  }
-
   // Toggle job details expansion
   const toggleJobExpand = (jobId: number) => {
     setExpandedJobId(expandedJobId === jobId ? null : jobId);
@@ -329,10 +467,16 @@ const DataGrid = () => {
 
       // Update in the database
       await dataShareService.updateJob(jobId, { status: newStatus });
+      
+      // Refresh status counts
+      await fetchStatusCounts();
     } catch (error) {
       console.error('Error updating job status:', error);
       // Revert on error
-      debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize);
+      await Promise.all([
+        debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, currentPage, pageSize),
+        fetchStatusCounts()
+      ]);
     }
   };
 
@@ -361,15 +505,49 @@ const DataGrid = () => {
     }
   };
 
-  // Calculate statistics
+  // Use all status counts from the server
   const stats = {
-    totalJobs: jobs.length,
-    applied: jobs.filter(job => job.status === 'Applied').length,
-    interviews: jobs.filter(job => job.status === 'Interview').length,
-    offers: jobs.filter(job => job.status === 'Offer' || job.status === 'Accepted').length,
-    rejected: jobs.filter(job => job.status === 'Rejected').length,
-    saved: jobs.filter(job => !job.status || job.status === 'Saved').length,
-    declined: jobs.filter(job => job.status === 'Declined').length
+    // Keep the original property names for backward compatibility
+    totalJobs: statusCounts.total || 0,
+    saved: statusCounts.Saved || 0,
+    applied: statusCounts.Applied || 0,
+    interviews: statusCounts.Interview || 0,
+    offers: (statusCounts.Offer || 0) + (statusCounts.Accepted || 0),
+    rejected: statusCounts.Rejected || 0,
+    withdrawn: statusCounts.Withdrawn || 0,
+    // New status counts
+    interview: statusCounts.Interview || 0,
+    offer: statusCounts.Offer || 0,
+    accepted: statusCounts.Accepted || 0,
+    // Derived stats
+    activeApplications: (statusCounts.Applied || 0) + (statusCounts.Interview || 0) + (statusCounts.Offer || 0),
+    successRate: statusCounts.total > 0 
+      ? Math.round(((statusCounts.Offer || 0) + (statusCounts.Accepted || 0)) / statusCounts.total * 100) 
+      : 0,
+    // Alias for backward compatibility
+    total: statusCounts.total || 0
+  };
+
+  // Ensure all statuses are handled in the getStatusStyles function
+  const getStatusStyles = (status: string) => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case 'applied':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'interview':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'offer':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'accepted':
+        return 'bg-green-200 text-green-900 border-green-300';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'withdrawn':
+        return 'bg-gray-200 text-gray-800 border-gray-300';
+      case 'saved':
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
   };
 
   // Truncate text with ellipsis
@@ -379,51 +557,16 @@ const DataGrid = () => {
   };
 
   return (
-    <div id="main-contet" className="w-full px-20 sm:px-2 md:px-4 space-y-6 sm:space-y-6 overflow-x-hidden mb-6">
+    <div id="main-content" className="w-full px-20 sm:px-2 md:px-4 space-y-6 sm:space-y-6 overflow-x-hidden mb-6">
+      <AddJobModal 
+        isOpen={isAddJobModalOpen} 
+        onClose={() => setIsAddJobModalOpen(false)}
+        onJobAdded={handleJobAdded}
+      />
       <div className="w-full px-1 sm:px-2 md:px-4 space-y-4 sm:space-y-6 overflow-x-hidden">
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
-            <div className="text-2xl font-bold text-gray-900">{stats.totalJobs}</div>
-            <div className="text-sm text-gray-500">Total Jobs</div>
-            <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500" style={{ width: '100%' }}></div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
-            <div className="text-2xl font-bold text-green-600">{stats.applied}</div>
-            <div className="text-sm text-gray-500">Applied</div>
-            <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-green-500 transition-all duration-500" 
-                style={{ width: `${(stats.applied / Math.max(1, stats.totalJobs)) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
-            <div className="text-2xl font-bold text-blue-600">{stats.interviews}</div>
-            <div className="text-sm text-gray-500">Interviews</div>
-            <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-yellow-500 transition-all duration-500" 
-                style={{ width: `${(stats.interviews / Math.max(1, stats.totalJobs)) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
-            <div className="text-2xl font-bold text-purple-600">{stats.offers}</div>
-            <div className="text-sm text-gray-500">Offers</div>
-            <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-purple-500 transition-all duration-500" 
-                style={{ width: `${(stats.offers / Math.max(1, stats.totalJobs)) * 100}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
 
         {/* Search and Filters */}
-        <div className="space-y-3 mb-4">
+        <div className="space-y-3 mb-4 mt-2">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <input
@@ -474,15 +617,55 @@ const DataGrid = () => {
               <option value="table">Table View</option>
               <option value="grid">Grid View</option>
             </select>
-            <button className="px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-sm sm:text-base transition-colors duration-200">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M3 17a1 1 0 01-1-1v-5h2v4h12v-4h2v5a1 1 0 01-1 1H3zm5-9V3h4v5h3l-5 5-5-5h3z" clipRule="evenodd" />
+            <button 
+              onClick={() => setShowDeleteAllConfirm(true)}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-red-600 hover:bg-red-700 text-white rounded-md flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-sm sm:text-base transition-colors duration-200"
+              disabled={isDeletingAll || jobs.length === 0}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
-              Download Excel
+              Delete All
+            </button>
+            <button 
+              onClick={async () => {
+                if (isExporting) return;
+                setIsExporting(true);
+                try {
+                  await dataShareService.exportJobsToExcel();
+                } catch (error) {
+                  console.error('Error exporting to Excel:', error);
+                  // You might want to show a toast notification here
+                } finally {
+                  setIsExporting(false);
+                }
+              }}
+              disabled={isExporting}
+              className="px-3 py-1.5 sm:px-4 sm:py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-sm sm:text-base transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isExporting ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M3 17a1 1 0 01-1-1v-5h2v4h12v-4h2v5a1 1 0 01-1 1H3zm5-9V3h4v5h3l-5 5-5-5h3z" clipRule="evenodd" />
+                  </svg>
+                  Download Excel
+                </>
+              )}
             </button>
             <button 
               className="px-3 py-1.5 sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-sm sm:text-base transition-colors duration-200"
-              onClick={() => window.location.href = '/add-job'}
+              onClick={(e) => {
+                e.preventDefault();
+                setIsAddJobModalOpen(true);
+              }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
@@ -494,7 +677,103 @@ const DataGrid = () => {
 
   <>
         {mode === 'table' ? (
-          <div className="bg-white shadow w-full border border-gray-100">
+          <div className="space-y-4">
+            {/* Stats Dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Jobs */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-gray-900">{stats.totalJobs}</div>
+                <div className="text-sm text-gray-500">Total Jobs</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500" style={{ width: '100%' }}></div>
+                </div>
+              </div>
+              
+              {/* Applied */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-green-600">{stats.applied}</div>
+                <div className="text-sm text-gray-500">Applied</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 transition-all duration-500" 
+                    style={{ width: `${(stats.applied / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Interview */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-blue-600">{stats.interviews}</div>
+                <div className="text-sm text-gray-500">Interviews</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-yellow-500 transition-all duration-500" 
+                    style={{ width: `${(stats.interviews / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Offers */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-purple-600">{stats.offers}</div>
+                <div className="text-sm text-gray-500">Offers</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500 transition-all duration-500" 
+                    style={{ width: `${(stats.offers / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Accepted */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-green-700">{stats.accepted}</div>
+                <div className="text-sm text-gray-500">Accepted</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-700 transition-all duration-500" 
+                    style={{ width: `${(stats.accepted / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Rejected */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+                <div className="text-sm text-gray-500">Rejected</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-red-500 transition-all duration-500" 
+                    style={{ width: `${(stats.rejected / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Withdrawn */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-gray-600">{stats.withdrawn}</div>
+                <div className="text-sm text-gray-500">Withdrawn</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gray-400 transition-all duration-500" 
+                    style={{ width: `${(stats.withdrawn / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Success Rate */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-indigo-600">{stats.successRate}%</div>
+                <div className="text-sm text-gray-500">Success Rate</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-indigo-500 transition-all duration-500" 
+                    style={{ width: `${stats.successRate}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white shadow w-full border border-gray-100">
             <div className="overflow-x-auto -mx-1 sm:mx-0 w-full">
               <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-xs">
                 <thead className="bg-gray-50">
@@ -510,7 +789,34 @@ const DataGrid = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {jobs.map((job) => (
+                {(!jobs || jobs.length === 0) ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="p-3 bg-blue-50 rounded-full">
+                          <svg className="h-12 w-12 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-lg font-medium text-gray-900">No jobs found</h3>
+                        <p className="text-gray-500 max-w-md">There are no jobs matching your current filters. Try adjusting your search or add a new job.</p>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setIsAddJobModalOpen(true);
+                          }}
+                          className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        >
+                          <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                          </svg>
+                          Add New Job
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  jobs.map((job) => (
                   <tr key={job.id} className="hover:bg-gray-50 h-8 leading-none">
                     <td className="px-2 py-2 max-w-[200px]">
                       <div className="font-medium text-gray-900 truncate text-xs leading-none" title={job.position}>
@@ -583,9 +889,22 @@ const DataGrid = () => {
                           <path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" />
                         </svg>
                       </button>
+                      <button 
+                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setJobToDelete(job);
+                        }}
+                        title="Delete job"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
               </table>
             </div>
@@ -666,11 +985,133 @@ const DataGrid = () => {
                 </div>
               </div>
             </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Stats Dashboard - Grid View */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Total Jobs */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-gray-900">{stats.totalJobs}</div>
+                <div className="text-sm text-gray-500">Total Jobs</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500" style={{ width: '100%' }}></div>
+                </div>
+              </div>
+              
+              {/* Applied */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-green-600">{stats.applied}</div>
+                <div className="text-sm text-gray-500">Applied</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-500 transition-all duration-500" 
+                    style={{ width: `${(stats.applied / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Interview */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-blue-600">{stats.interviews}</div>
+                <div className="text-sm text-gray-500">Interviews</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-yellow-500 transition-all duration-500" 
+                    style={{ width: `${(stats.interviews / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Offers */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-purple-600">{stats.offers}</div>
+                <div className="text-sm text-gray-500">Offers</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-purple-500 transition-all duration-500" 
+                    style={{ width: `${(stats.offers / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Accepted */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-green-700">{stats.accepted}</div>
+                <div className="text-sm text-gray-500">Accepted</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-green-700 transition-all duration-500" 
+                    style={{ width: `${(stats.accepted / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Rejected */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-red-600">{stats.rejected}</div>
+                <div className="text-sm text-gray-500">Rejected</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-red-500 transition-all duration-500" 
+                    style={{ width: `${(stats.rejected / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Withdrawn */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-gray-600">{stats.withdrawn}</div>
+                <div className="text-sm text-gray-500">Withdrawn</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-gray-400 transition-all duration-500" 
+                    style={{ width: `${(stats.withdrawn / Math.max(1, stats.totalJobs)) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+              
+              {/* Success Rate */}
+              <div className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                <div className="text-2xl font-bold text-indigo-600">{stats.successRate}%</div>
+                <div className="text-sm text-gray-500">Success Rate</div>
+                <div className="mt-2 h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-indigo-500 transition-all duration-500" 
+                    style={{ width: `${stats.successRate}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            
             <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 p-1 sm:p-2">
-              {jobs.map((job) => (
+              {(!jobs || jobs.length === 0) ? (
+                <div className="col-span-full py-12">
+                  <div className="flex flex-col items-center justify-center space-y-4 text-center">
+                    <div className="p-3 bg-blue-50 rounded-full">
+                      <svg className="h-12 w-12 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900">No jobs found</h3>
+                    <p className="text-gray-500 max-w-md">There are no jobs matching your current filters. Try adjusting your search or add a new job.</p>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsAddJobModalOpen(true);
+                      }}
+                      className="mt-2 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
+                      </svg>
+                      Add New Job
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                jobs.map((job) => (
                 <div key={job.id} className="bg-white rounded-lg shadow p-3 sm:p-4 hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-blue-100 h-full flex flex-col">
                 <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 h-10 sm:h-12">{job.position}</h3>
                 <p className="text-xs sm:text-sm text-gray-600 font-medium">{job.company}</p>
@@ -756,11 +1197,12 @@ const DataGrid = () => {
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+          )}
           </div>
-            
-            {/* Pagination for Grid View */}
-            <div className="px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+          
+          {/* Pagination for Grid View */}
+          <div className="px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-700">
                 <div className="flex items-center gap-2">
                   <span>Show</span>
@@ -840,6 +1282,90 @@ const DataGrid = () => {
         )}
       </>
       </div>
+
+      {/* Delete All Confirmation Dialog */}
+      <Dialog
+        open={showDeleteAllConfirm}
+        onClose={() => !isDeletingAll && setShowDeleteAllConfirm(false)}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-sm rounded bg-white p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-500" aria-hidden="true" />
+              </div>
+              <Dialog.Title className="text-lg font-medium text-gray-900">
+                Delete all jobs
+              </Dialog.Title>
+            </div>
+            <Dialog.Description className="text-gray-600 mb-6">
+              Are you sure you want to delete all jobs? This action cannot be undone and will permanently remove all your job applications.
+            </Dialog.Description>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                onClick={() => setShowDeleteAllConfirm(false)}
+                disabled={isDeletingAll}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                onClick={handleDeleteAllJobs}
+                disabled={isDeletingAll}
+              >
+                {isDeletingAll ? 'Deleting...' : 'Delete All'}
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
+
+      {/* Delete Single Job Confirmation Dialog */}
+      <Dialog
+        open={!!jobToDelete}
+        onClose={() => !isDeleting && setJobToDelete(null)}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-sm rounded bg-white p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-shrink-0">
+                <ExclamationTriangleIcon className="h-6 w-6 text-red-500" aria-hidden="true" />
+              </div>
+              <Dialog.Title className="text-lg font-medium text-gray-900">
+                Delete job application
+              </Dialog.Title>
+            </div>
+            <Dialog.Description className="text-gray-600 mb-6">
+              Are you sure you want to delete the job application for "{jobToDelete?.position}" at {jobToDelete?.company}? This action cannot be undone.
+            </Dialog.Description>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                onClick={() => setJobToDelete(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                onClick={handleDeleteJob}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
     </div>
   );
 };

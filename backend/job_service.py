@@ -115,6 +115,29 @@ class JobService:
         db.delete(job)
         db.commit()
         return True
+        
+    def delete_all_user_jobs(self, db: Session, user_id: int) -> int:
+        """
+        Delete all jobs belonging to a specific user
+        
+        Args:
+            db: Database session
+            user_id: ID of the user whose jobs should be deleted
+            
+        Returns:
+            int: Number of jobs deleted
+        """
+        try:
+            # Get the count before deletion for the return value
+            count = db.query(Job).filter(Job.user_id == user_id).count()
+            
+            # Delete all jobs for the user
+            db.query(Job).filter(Job.user_id == user_id).delete(synchronize_session=False)
+            db.commit()
+            return count
+        except Exception as e:
+            db.rollback()
+            raise e
     
     def get_jobs_by_status(self, db: Session, user_id: int, status: str, 
                           skip: int = 0, limit: int = 100) -> List[Job]:
@@ -130,6 +153,9 @@ class JobService:
     def count_jobs_by_status(self, db: Session, user_id: int) -> Dict[str, int]:
         """
         Count jobs by status for a specific user
+        
+        Returns:
+            Dict with status counts matching the JobStatusCount model
         """
         result = {}
         for status in JobStatus:
@@ -137,7 +163,8 @@ class JobService:
                 Job.user_id == user_id,
                 Job.status == status
             ).count()
-            result[status.value] = count
+            # Use status.name to get the enum name (e.g., 'SAVED') and capitalize it ('Saved')
+            result[status.name.capitalize()] = count
         
         # Add total count
         result["total"] = db.query(Job).filter(Job.user_id == user_id).count()

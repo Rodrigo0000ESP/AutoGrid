@@ -1,0 +1,79 @@
+---
+interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+interface Props {
+  items: FAQItem[];
+  title?: string;
+}
+
+const { items, title = 'Frequently Asked Questions' } = Astro.props;
+---
+
+<div class="mt-20">
+  <h2 class="text-2xl font-bold text-gray-900 text-center mb-8">{title}</h2>
+  <div class="space-y-4 max-w-3xl mx-auto">
+    {items.map((faq, index) => {
+      const isFirst = index === 0;
+      return (
+        <div class="bg-white border border-gray-200 rounded-lg overflow-hidden transition-all duration-200 hover:shadow-md">
+          <button 
+            class="w-full px-6 py-4 text-left font-medium text-gray-900 hover:bg-gray-50 focus:outline-none flex justify-between items-center transition-colors duration-200"
+            data-faq-id={faq.id}
+            onclick="
+              const content = this.nextElementSibling;
+              const icon = this.querySelector('svg');
+              const isExpanded = this.getAttribute('aria-expanded') === 'true';
+              
+              // Toggle the expanded state
+              const newState = !isExpanded;
+              this.setAttribute('aria-expanded', newState);
+              
+              if (newState) {
+                // Expand
+                content.style.maxHeight = (content.scrollHeight + 32) + 'px'; // Add extra space for padding
+                content.style.opacity = '1';
+                content.style.paddingTop = '0.75rem';
+                content.style.paddingBottom = '1rem';
+                content.style.overflow = 'hidden';
+                icon.style.transform = 'rotate(180deg)';
+              } else {
+                // Collapse
+                content.style.maxHeight = '0';
+                content.style.opacity = '0';
+                content.style.paddingTop = '0';
+                content.style.paddingBottom = '0';
+                icon.style.transform = 'rotate(0deg)';
+              }
+            "
+            aria-expanded={isFirst ? 'true' : 'false'}
+            aria-controls={`faq-${faq.id}-content`}
+          >
+            <span class="text-left">{faq.question}</span>
+            <svg 
+              class="h-6 w-6 text-gray-500 transition-transform duration-300 flex-shrink-0 ml-4" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+              style={isFirst ? 'transform: rotate(180deg);' : ''}
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          <div 
+            id={`faq-${faq.id}-content`}
+            class="px-6 text-gray-600 overflow-hidden transition-all duration-300 ease-in-out"
+            style={isFirst ? 'max-height: 500px; opacity: 1; padding: 0.75rem 1.5rem 1rem 1.5rem;' : 'max-height: 0; opacity: 0; padding: 0 1.5rem;'}
+          >
+            <div class="pb-4">
+              {faq.answer}
+            </div>
+          </div>
+        </div>
+      );
+    })}
+  </div>
+</div>

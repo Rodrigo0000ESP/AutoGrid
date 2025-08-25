@@ -1,21 +1,18 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
+import os
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any, TypeVar
 from pydantic import BaseModel
 from pagination import PaginatedResult, PaginationParams
-
-# Define a generic type variable for the response model
-T = TypeVar('T')
-
-# Re-export PaginatedResult as PaginatedResponse for backward compatibility
-PaginatedResponse = PaginatedResult
-from datetime import datetime
 from BaseRepository import SessionLocal
 from job_service import JobService
 from models import JobType, JobStatus
 from jwt_utils import get_current_user
 from html_parser import HtmlParser
 from llm_job_parser import LlmJobParser
+from job_export_service import JobExportService
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -216,6 +213,36 @@ async def get_jobs(
     
     return result
 
+@router.get("/export/excel", tags=["jobs"])
+async def export_jobs_to_excel(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all jobs to an Excel file.
+    
+    Returns:
+        Excel file containing all jobs
+    """
+    try:
+        export_service = JobExportService()
+        filepath = export_service.export_jobs(db, current_user["id"])
+        filename = os.path.basename(filepath)
+        
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error exporting jobs to Excel: {str(e)}"
+        )
+
 @router.get("/status-counts", response_model=JobStatusCount)
 def get_job_status_counts(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
     """
@@ -275,6 +302,28 @@ def delete_job(job_id: int, current_user: dict = Depends(get_current_user), db: 
         raise HTTPException(status_code=404, detail="Job not found")
     
     return None
+
+@router.delete("/", response_model=dict)
+async def delete_all_user_jobs(
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Delete all jobs for the current user
+    """
+    service = JobService()
+    try:
+        deleted_count = service.delete_all_user_jobs(db, current_user["id"])
+        return {
+            "status": "success",
+            "message": f"Successfully deleted {deleted_count} jobs",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting jobs: {str(e)}"
+        )
 
 @router.post("/preparse-job-offer", status_code=status.HTTP_200_OK)
 def preparse_job_offer(
