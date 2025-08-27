@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from auth import AuthRepository
-from BaseRepository import SessionLocal
+from BaseRepository import SessionLocal, get_db
 from models import User, PasswordReset
 from email_service import send_password_reset_email
 import secrets
@@ -17,12 +17,6 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 class RegisterRequest(BaseModel):
     username: str

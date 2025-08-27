@@ -18,6 +18,14 @@ if not DB_URL:
     raise RuntimeError("DB_URL environment variable not set. Please check your .env file and its location.")
 engine = create_engine(DB_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def get_db():
+    """Get database session"""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 Base = declarative_base()
 
 T = TypeVar('T')

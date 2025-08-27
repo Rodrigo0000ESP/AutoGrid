@@ -8,7 +8,7 @@ from models import User, UserSubscription
 from dependencies import get_db, get_current_user
 from stripe_service import StripeService
 from BaseRepository import BaseRepository
-
+from plan_middleware import PlanChecker
 router = APIRouter(prefix="/subscription", tags=["subscription"])
 
 # Obtener la URL del frontend desde las variables de entorno
@@ -137,6 +137,48 @@ async def get_subscription_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error al obtener el estado de la suscripción: {str(e)}"
+        )
+@router.get("/plan_usage")
+async def get_plan_usage(
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Obtener el uso actual del plan del usuario"""
+    try:
+        # Obtener el usuario completo de la base de datos
+        from models import User
+        user = db.query(User).filter(User.id == current_user['id']).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+            
+        # Obtener la información del plan
+        plan_usage = PlanChecker.get_plan_usage(db, user)
+        
+        return {
+            "status": "success",
+            "data": {
+                "plan": plan_usage['plan_name'],
+                "is_trial": plan_usage['is_trial'],
+                "limits": {
+                    "max_extractions": plan_usage['limits'].get('max_extractions', 0),
+                    "max_store_capacity": plan_usage['limits'].get('max_jobs', 0),
+                    "used_jobs": plan_usage['limits'].get('used_jobs', 0)
+                },
+                "features": plan_usage['limits'].get('features', []),
+                "subscription": {
+                    "status": plan_usage['subscription'].get('status', 'inactive'),
+                    "current_period_end": plan_usage['subscription'].get('current_period_end')
+                }
+            }
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al obtener el uso del plan: {str(e)}"
         )
 
 @router.post("/webhook")

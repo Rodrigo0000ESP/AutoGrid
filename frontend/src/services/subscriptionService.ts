@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAuthToken } from './authService';
 
 // Global axios configuration for CORS and credentials
 const api = axios.create({
@@ -158,3 +159,59 @@ export const getSubscriptionStatus = async () => {
     throw error;
   }
 };
+
+// Types for the plan usage response
+export interface PlanLimits {
+  max_extractions: number;
+  max_store_capacity: number;
+}
+
+export interface PlanUsageResponse {
+  plan: string;
+  is_trial: boolean;
+  limits: PlanLimits;
+  features: Record<string, boolean>;
+  description: string;
+}
+
+export const getPLanCurrentLimits = async (): Promise<PlanUsageResponse | null> => {
+    try {
+        const token = getAuthToken();
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        
+        const response = await api.get('/subscription/plan_usage', {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.data || !response.data.data) {
+            throw new Error('Invalid response format from server');
+        }
+        
+        // Transform the response to match the expected format
+        const responseData = response.data.data;
+        return {
+            plan: responseData.plan,
+            is_trial: responseData.is_trial,
+            limits: {
+                max_extractions: responseData.limits.max_extractions,
+                max_store_capacity: responseData.limits.max_store_capacity
+            },
+            features: responseData.features || {},
+            description: responseData.description || ''
+        };
+    } catch (error: any) {
+        console.error('Error getting subscription status:', error);
+        if (error.response?.status === 401) {
+            // Handle unauthorized error
+            window.location.href = '/login';
+            return null;
+        }
+        throw error;
+    }
+};
+    

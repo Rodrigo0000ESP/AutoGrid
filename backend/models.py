@@ -4,8 +4,46 @@ from BaseRepository import Base
 from pagination import PaginationParams, PaginatedResult
 from pydantic import BaseModel
 from typing import List, Generic, TypeVar, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import enum
+class ExtractionCounter(Base):
+    __tablename__ = 'extraction_counters'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, unique=True)
+    count = Column(Integer, default=0, nullable=False)
+    last_reset = Column(DateTime, default=datetime.utcnow, nullable=False)
+    
+    @classmethod
+    def get_or_create_counter(cls, db, user_id: int) -> 'ExtractionCounter':
+        counter = db.query(cls).filter(cls.user_id == user_id).first()
+        if not counter:
+            counter = ExtractionCounter(user_id=user_id)
+            db.add(counter)
+            db.commit()
+            db.refresh(counter)
+        return counter
+    
+    def should_reset_counter(self) -> bool:
+        """Check if the counter should be reset (monthly)"""
+        return datetime.utcnow() >= self.last_reset + timedelta(days=30)
+    
+    def reset_counter(self, db):
+        """Reset the counter and update the last reset timestamp"""
+        self.count = 0
+        self.last_reset = datetime.utcnow()
+        db.commit()
+    
+    def increment(self, db, amount: int = 1) -> int:
+        """Increment the counter and return the new count"""
+        if self.should_reset_counter():
+            self.reset_counter(db)
+        
+        self.count += amount
+        db.commit()
+        return self.count
+
+
 class JobType(enum.Enum):
     FULL_TIME = "Full-Time"
     PART_TIME = "Part-Time"

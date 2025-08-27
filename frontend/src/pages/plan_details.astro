@@ -1,0 +1,207 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// This component will be fully rendered on the client side
+---
+
+<Layout title="My Plan | AutoGrid">
+  <div id="plan-details-content">
+    <div class="flex justify-center items-center h-64">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>
+  </div>
+
+  <script>
+    // Import services and types
+    (async () => {
+      const contentDiv = document.getElementById('plan-details-content');
+      if (!contentDiv) return;
+
+      try {
+        // Import services dynamically for client-side execution
+        const { isAuthenticated } = await import('../services/authService.js');
+        const { getPLanCurrentLimits } = await import('../services/subscriptionService.js');
+        
+        // Check authentication
+        if (!isAuthenticated()) {
+          sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+          window.location.href = '/login';
+          return;
+        }
+
+        // Load plan data
+        const response = await getPLanCurrentLimits();
+        
+        if (response) {
+          renderPlanDetails(contentDiv, response);
+        } else {
+          throw new Error('Failed to load plan data');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        showError(contentDiv, err instanceof Error ? err.message : 'An error occurred');
+      }
+    })();
+
+    /**
+     * Display error message
+     */
+    function showError(container, message) {
+      container.innerHTML = `
+        <div class="bg-red-50 border-l-4 border-red-400 p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-red-700">${message}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Calculate usage percentage
+     */
+    function getUsagePercentage(used, total) {
+      if (total <= 0) return 100;
+      return Math.min(Math.round((used / total) * 100), 100);
+    }
+
+    /**
+     * Render plan details
+     */
+    function renderPlanDetails(container, planData) {
+      // Helper function to format date
+      const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        return new Date(dateString).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      };
+
+      // Format feature name for display
+      const formatFeatureName = (feature) => {
+        return feature
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+          .join(' ');
+      };
+
+      // Get usage display value
+      const getUsageDisplay = (value) => {
+        return value === -1 ? '∞' : value;
+      };
+
+      // Render the plan details
+      container.innerHTML = `
+        <main class="container mx-auto px-4 py-8">
+          <h1 class="text-3xl font-bold text-gray-900 mb-8">Your Plan Details</h1>
+          
+          <div class="space-y-8">
+            <!-- Plan Summary -->
+            <div class="bg-white shadow rounded-lg p-6">
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 class="text-xl font-semibold text-gray-900">
+                    ${planData.plan || 'Free'} Plan
+                    ${planData.is_trial ? ' (Trial)' : ''}
+                  </h2>
+                  <p class="text-gray-600 mt-1">
+                    ${planData.description || ''}
+                  </p>
+                </div>
+                <a 
+                  href="/pricing" 
+                  class="mt-4 md:mt-0 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  ${(!planData.plan || planData.plan === 'free') ? 'Upgrade Plan' : 'Manage Subscription'}
+                </a>
+              </div>
+            </div>
+
+            <!-- Usage Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Extractions Usage -->
+              <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Extractions</h3>
+                <div class="space-y-4">
+                  <div>
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Used this month</span>
+                      <span>
+                        0 / ${getUsageDisplay(planData.limits?.max_extractions || 0)}
+                      </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        class="bg-indigo-600 h-2.5 rounded-full" 
+                        style="width: ${getUsagePercentage(0, planData.limits?.max_extractions || 0)}%"
+                      ></div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1">
+                      Usage resets at the end of the billing cycle
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Job Storage -->
+              <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Job Storage</h3>
+                <div class="space-y-4">
+                  <div>
+                    <div class="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Stored Jobs</span>
+                      <span>
+                        0 / ${getUsageDisplay(planData.limits?.max_store_capacity || 0)}
+                      </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        class="bg-green-600 h-2.5 rounded-full" 
+                        style="width: ${getUsagePercentage(0, planData.limits?.max_store_capacity || 0)}%"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Plan Features -->
+            <div class="bg-white shadow rounded-lg p-6">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Plan Features</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${Object.entries(planData.features || {}).map(([feature, enabled]) => `
+                  <div class="flex items-start">
+                    <div class="flex-shrink-0 h-5 w-5">
+                      ${enabled ? `
+                        <svg class="text-green-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                      ` : `
+                        <svg class="text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                      `}
+                    </div>
+                    <div class="ml-3">
+                      <p class="text-sm ${enabled ? 'text-gray-900' : 'text-gray-400'}">
+                        ${formatFeatureName(feature)}
+                      </p>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          </div>
+        </main>
+      `;
+    }
+  </script>
+</Layout>
