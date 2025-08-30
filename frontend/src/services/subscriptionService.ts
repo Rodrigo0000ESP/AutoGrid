@@ -161,20 +161,40 @@ export const getSubscriptionStatus = async () => {
 };
 
 // Types for the plan usage response
+export interface UsageMetrics {
+  current: number;
+  limit: number;
+  remaining: number;
+}
+
+export interface PlanUsage {
+  extractions: UsageMetrics;
+  storage: UsageMetrics;
+}
+
 export interface PlanLimits {
   max_extractions: number;
   max_store_capacity: number;
+  allow_multiple_extractions: boolean;
+  allow_unlimited_extractions: boolean;
+}
+
+export interface SubscriptionInfo {
+  status: string;
+  current_period_end: string | null;
+  [key: string]: any; // Allow for additional subscription properties
 }
 
 export interface PlanUsageResponse {
   plan: string;
   is_trial: boolean;
+  usage: PlanUsage;
   limits: PlanLimits;
   features: Record<string, boolean>;
-  description: string;
+  subscription: SubscriptionInfo;
 }
 
-export const getPLanCurrentLimits = async (): Promise<PlanUsageResponse | null> => {
+export const getPlanCurrentLimits = async (): Promise<PlanUsageResponse | null> => {
     try {
         const token = getAuthToken();
         if (!token) {
@@ -192,17 +212,34 @@ export const getPLanCurrentLimits = async (): Promise<PlanUsageResponse | null> 
             throw new Error('Invalid response format from server');
         }
         
-        // Transform the response to match the expected format
         const responseData = response.data.data;
+        
         return {
             plan: responseData.plan,
             is_trial: responseData.is_trial,
+            usage: {
+                extractions: {
+                    current: responseData.usage?.extractions?.current || 0,
+                    limit: responseData.usage?.extractions?.limit || 0,
+                    remaining: responseData.usage?.extractions?.remaining || 0
+                },
+                storage: {
+                    current: responseData.usage?.storage?.current || 0,
+                    limit: responseData.usage?.storage?.limit || 0,
+                    remaining: responseData.usage?.storage?.remaining || 0
+                }
+            },
             limits: {
-                max_extractions: responseData.limits.max_extractions,
-                max_store_capacity: responseData.limits.max_store_capacity
+                max_extractions: responseData.limits?.max_extractions || 0,
+                max_store_capacity: responseData.limits?.max_store_capacity || 0,
+                allow_multiple_extractions: responseData.limits?.allow_multiple_extractions || false,
+                allow_unlimited_extractions: responseData.limits?.allow_unlimited_extractions || false
             },
             features: responseData.features || {},
-            description: responseData.description || ''
+            subscription: responseData.subscription || { 
+                status: 'inactive', 
+                current_period_end: null 
+            }
         };
     } catch (error: any) {
         console.error('Error getting subscription status:', error);

@@ -41,22 +41,44 @@ class PlanChecker:
         """
         Get the user's current plan details with actual usage
         Returns a tuple of (plan_name, plan_details, is_trial)
+        
+        The plan_details dictionary includes:
+        - Basic plan information (name, description, features)
+        - Usage metrics (current extractions, stored jobs)
+        - Limits (max extractions, max storage capacity)
+        - Remaining usage (remaining extractions, remaining storage)
         """
         # Default to Free plan
         plan_name = PlanType.FREE.value
-        plan_details = get_plan(plan_name)
+        plan_details = get_plan(plan_name).copy()  # Get a copy of the plan details
         is_trial = False
         
         # Refresh the user object to get the latest subscription data
         db.refresh(user)
         
+        # Initialize usage metrics
+        current_extractions = 0
+        current_stored_jobs = 0
+        
+        try:
+            # Get extraction counter
+            counter = ExtractionCounter.get_or_create_counter(db, user.id)
+            current_extractions = counter.count
+            
+            # Get stored jobs count
+            current_stored_jobs = db.query(Job).filter(Job.user_id == user.id).count()
+            
+        except Exception as e:
+            print(f"Error getting usage data: {str(e)}")
+        
+        # Check subscription status
         if hasattr(user, 'subscription') and user.subscription:
             # Get fresh subscription data from database
             subscription = db.query(UserSubscription).filter(
                 UserSubscription.user_id == user.id
             ).first()
             
-            if subscription and cls._is_subscription_active(subscription):
+            if subscription and cls._is_subscription_active(subscription) and subscription.stripe_subscription_id:
                 try:
                     # Get plan details from Stripe
                     stripe_plan, is_trial = StripeService.get_subscription_limits(db, user.id, subscription)
@@ -66,7 +88,7 @@ class PlanChecker:
                         plan_data = get_plan(plan_type.value)
                         if plan_data.get('stripe_price_id') == stripe_plan.get('stripe_price_id'):
                             plan_name = plan_type.value
-                            plan_details = plan_data.copy()  # Use the predefined plan details
+                            plan_details.update(plan_data)  # Update with the predefined plan details
                             break
                     
                     # Update with the actual Stripe plan details
@@ -75,26 +97,15 @@ class PlanChecker:
                 except Exception as e:
                     print(f"Error getting Stripe subscription: {str(e)}")
         
-        # Get current extraction count and stored jobs
-        try:
-            # Get extraction counter
-            counter = ExtractionCounter.get_or_create_counter(db, user.id)
-            plan_details['current_extractions'] = counter.count
-            
-            # Get stored jobs count
-            stored_jobs = db.query(Job).filter(Job.user_id == user.id).count()
-            plan_details['current_stored'] = stored_jobs
-            
-            # Calculate remaining usage
-            plan_details['remaining_extractions'] = max(0, plan_details.get('max_extractions', 0) - counter.count)
-            plan_details['remaining_storage'] = max(0, plan_details.get('max_store_capacity', 0) - stored_jobs)
-            
-        except Exception as e:
-            print(f"Error getting usage data: {str(e)}")
-            plan_details['current_extractions'] = 0
-            plan_details['current_stored'] = 0
-            plan_details['remaining_extractions'] = plan_details.get('max_extractions', 0)
-            plan_details['remaining_storage'] = plan_details.get('max_store_capacity', 0)
+        # Update plan details with usage information
+        plan_details.update({
+            'current_extractions': current_extractions,
+            'current_stored': current_stored_jobs,
+            'remaining_extractions': max(0, plan_details.get('max_extractions', 0) - current_extractions),
+            'remaining_storage': max(0, plan_details.get('max_store_capacity', 0) - current_stored_jobs),
+            'extraction_limit': plan_details.get('max_extractions', 0),
+            'storage_limit': plan_details.get('max_store_capacity', 0)
+        })
             
         return plan_name, plan_details, is_trial
     

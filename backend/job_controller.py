@@ -8,12 +8,12 @@ from pydantic import BaseModel
 from pagination import PaginatedResult, PaginationParams
 from BaseRepository import SessionLocal
 from job_service import JobService
-from models import JobType, JobStatus
+from models import JobType, JobStatus, User, ExtractionCounter
 from jwt_utils import get_current_user
 from html_parser import HtmlParser
 from llm_job_parser import LlmJobParser
 from job_export_service import JobExportService
-
+from plan_middleware import PlanChecker
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 def get_db():
@@ -108,12 +108,30 @@ def job_creation_workflow(
     1. Pre-parses HTML to clean it.
     2. Uses LLM to extract structured data.
     3. Saves the job offer to the database.
+    4. Increments the extraction counter.
     """
     html_parser = HtmlParser()
     llm_parser = LlmJobParser()
     service = JobService()
 
     try:
+        # 0. Check extraction limits before proceeding
+        # Get the full user model instance
+        user = db.query(User).filter(User.id == current_user["id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        # Get user's plan details
+        plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+        
+        # Check if user has reached extraction limit
+        counter = ExtractionCounter.get_or_create_counter(db, current_user["id"])
+        if counter.count >= plan_details.get('max_extractions', 10):  # Default to 10 if not set
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You have reached your monthly extraction limit. Please upgrade your plan to continue."
+            )
+
         # 1. Pre-parse HTML
         pre_parsed_data = html_parser.preparse_html(request_data.html_content, request_data.url)
         if not pre_parsed_data or not pre_parsed_data.get("content"):
@@ -133,8 +151,14 @@ def job_creation_workflow(
             user_id=current_user["id"],
             job_data=extracted_data
         )
+        
+        # 4. Increment extraction counter
+        counter.increment(db)
+        
         return created_job
 
+    except HTTPException:
+        raise
     except Exception as e:
         import logging
         logging.error(f"Error in job creation workflow: {e}")

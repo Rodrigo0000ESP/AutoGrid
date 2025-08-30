@@ -143,7 +143,12 @@ async def get_plan_usage(
     current_user: Dict[str, Any] = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Obtener el uso actual del plan del usuario"""
+    """
+    Obtener el uso actual del plan del usuario
+    
+    Returns:
+        dict: Contiene información detallada del plan, uso actual y límites
+    """
     try:
         # Obtener el usuario completo de la base de datos
         from models import User
@@ -153,27 +158,58 @@ async def get_plan_usage(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
-            
-        # Obtener la información del plan
-        plan_usage = PlanChecker.get_plan_usage(db, user)
         
-        return {
+        # Obtener la información detallada del plan
+        plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+        
+        # Obtener información de la suscripción
+        subscription_info = {
+            'status': 'inactive',
+            'current_period_end': None
+        }
+        
+        if hasattr(user, 'subscription') and user.subscription:
+            subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user.id
+            ).first()
+            
+            if subscription:
+                subscription_info.update({
+                    'status': subscription.status,
+                    'current_period_end': subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+                    'cancel_at_period_end': subscription.cancel_at_period_end
+                })
+        
+        # Preparar la respuesta
+        response = {
             "status": "success",
             "data": {
-                "plan": plan_usage['plan_name'],
-                "is_trial": plan_usage['is_trial'],
-                "limits": {
-                    "max_extractions": plan_usage['limits'].get('max_extractions', 0),
-                    "max_store_capacity": plan_usage['limits'].get('max_jobs', 0),
-                    "used_jobs": plan_usage['limits'].get('used_jobs', 0)
+                "plan": plan_name,
+                "is_trial": is_trial,
+                "usage": {
+                    "extractions": {
+                        "current": plan_details.get('current_extractions', 0),
+                        "limit": plan_details.get('max_extractions', 0),
+                        "remaining": plan_details.get('remaining_extractions', 0)
+                    },
+                    "storage": {
+                        "current": plan_details.get('current_stored', 0),
+                        "limit": plan_details.get('max_store_capacity', 0),
+                        "remaining": plan_details.get('remaining_storage', 0)
+                    }
                 },
-                "features": plan_usage['limits'].get('features', []),
-                "subscription": {
-                    "status": plan_usage['subscription'].get('status', 'inactive'),
-                    "current_period_end": plan_usage['subscription'].get('current_period_end')
-                }
+                "limits": {
+                    "max_extractions": plan_details.get('max_extractions', 0),
+                    "max_store_capacity": plan_details.get('max_store_capacity', 0),
+                    "allow_multiple_extractions": plan_details.get('allow_multiple_extractions', False),
+                    "allow_unlimited_extractions": plan_details.get('allow_unlimited_extractions', False)
+                },
+                "features": plan_details.get('features', []),
+                "subscription": subscription_info
             }
         }
+        
+        return response
         
     except Exception as e:
         raise HTTPException(
