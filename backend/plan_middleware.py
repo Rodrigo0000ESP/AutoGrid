@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from typing import Callable, Any, Optional, Dict, Type, Tuple
 from datetime import datetime
 
-from models import User, UserSubscription, Job
+from models import User, UserSubscription, Job, ExtractionCounter
 from plan_features import PlanType, PlanFeature, get_plan, has_feature, PlanLimitsExceeded
 from stripe_service import StripeService
 from BaseRepository import SessionLocal, get_db
@@ -39,26 +39,64 @@ class PlanChecker:
     @classmethod
     def get_user_plan(cls, db: Session, user: User) -> tuple[str, dict, bool]:
         """
-        Get the user's current plan details
+        Get the user's current plan details with actual usage
         Returns a tuple of (plan_name, plan_details, is_trial)
         """
-        default_plan = get_plan(PlanType.FREE.value)
+        # Default to Free plan
+        plan_name = PlanType.FREE.value
+        plan_details = get_plan(plan_name)
+        is_trial = False
         
-        # Check for active subscription
-        if not hasattr(user, 'subscription') or not user.subscription:
-            return PlanType.FREE.value, default_plan, False
-            
-        subscription = user.subscription
+        # Refresh the user object to get the latest subscription data
+        db.refresh(user)
         
-        # Validate subscription status
-        if not cls._is_subscription_active(subscription):
-            return PlanType.FREE.value, default_plan, False
+        if hasattr(user, 'subscription') and user.subscription:
+            # Get fresh subscription data from database
+            subscription = db.query(UserSubscription).filter(
+                UserSubscription.user_id == user.id
+            ).first()
             
-        # Get plan details from Stripe if available
-        if subscription.stripe_subscription_id:
-            return cls._get_stripe_plan_details(db, user, subscription)
+            if subscription and cls._is_subscription_active(subscription):
+                try:
+                    # Get plan details from Stripe
+                    stripe_plan, is_trial = StripeService.get_subscription_limits(db, user.id, subscription)
+                    
+                    # Find the matching plan based on stripe_price_id
+                    for plan_type in PlanType:
+                        plan_data = get_plan(plan_type.value)
+                        if plan_data.get('stripe_price_id') == stripe_plan.get('stripe_price_id'):
+                            plan_name = plan_type.value
+                            plan_details = plan_data.copy()  # Use the predefined plan details
+                            break
+                    
+                    # Update with the actual Stripe plan details
+                    plan_details.update(stripe_plan)
+                    
+                except Exception as e:
+                    print(f"Error getting Stripe subscription: {str(e)}")
+        
+        # Get current extraction count and stored jobs
+        try:
+            # Get extraction counter
+            counter = ExtractionCounter.get_or_create_counter(db, user.id)
+            plan_details['current_extractions'] = counter.count
             
-        return PlanType.FREE.value, default_plan, False
+            # Get stored jobs count
+            stored_jobs = db.query(Job).filter(Job.user_id == user.id).count()
+            plan_details['current_stored'] = stored_jobs
+            
+            # Calculate remaining usage
+            plan_details['remaining_extractions'] = max(0, plan_details.get('max_extractions', 0) - counter.count)
+            plan_details['remaining_storage'] = max(0, plan_details.get('max_store_capacity', 0) - stored_jobs)
+            
+        except Exception as e:
+            print(f"Error getting usage data: {str(e)}")
+            plan_details['current_extractions'] = 0
+            plan_details['current_stored'] = 0
+            plan_details['remaining_extractions'] = plan_details.get('max_extractions', 0)
+            plan_details['remaining_storage'] = plan_details.get('max_store_capacity', 0)
+            
+        return plan_name, plan_details, is_trial
     
     @staticmethod
     def _is_subscription_active(subscription: UserSubscription) -> bool:

@@ -46,7 +46,7 @@ import Layout from '../layouts/Layout.astro';
     /**
      * Display error message
      */
-    function showError(container, message) {
+    function showError(container: HTMLElement, message: string): void {
       container.innerHTML = `
         <div class="bg-red-50 border-l-4 border-red-400 p-4">
           <div class="flex">
@@ -66,7 +66,7 @@ import Layout from '../layouts/Layout.astro';
     /**
      * Calculate usage percentage
      */
-    function getUsagePercentage(used, total) {
+    function getUsagePercentage(used: number, total: number): number {
       if (total <= 0) return 100;
       return Math.min(Math.round((used / total) * 100), 100);
     }
@@ -74,9 +74,9 @@ import Layout from '../layouts/Layout.astro';
     /**
      * Render plan details
      */
-    function renderPlanDetails(container, planData) {
+    function renderPlanDetails(container: HTMLElement, planData: any): void {
       // Helper function to format date
-      const formatDate = (dateString) => {
+      const formatDate = (dateString: string | null | undefined): string => {
         if (!dateString) return 'N/A';
         return new Date(dateString).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -86,7 +86,7 @@ import Layout from '../layouts/Layout.astro';
       };
 
       // Format feature name for display
-      const formatFeatureName = (feature) => {
+      const formatFeatureName = (feature: string): string => {
         return feature
           .split('_')
           .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
@@ -94,7 +94,7 @@ import Layout from '../layouts/Layout.astro';
       };
 
       // Get usage display value
-      const getUsageDisplay = (value) => {
+      const getUsageDisplay = (value: number): string | number => {
         return value === -1 ? '∞' : value;
       };
 
