@@ -32,7 +32,7 @@ class ExtractionCounter(Base):
         """Reset the counter and update the last reset timestamp"""
         self.count = 0
         self.last_reset = datetime.utcnow()
-        db.commit()
+        # Note: Don't commit here, let the caller handle the transaction
     
     def increment(self, db, amount: int = 1) -> int:
         """Increment the counter and return the new count"""
@@ -40,7 +40,7 @@ class ExtractionCounter(Base):
             self.reset_counter(db)
         
         self.count += amount
-        db.commit()
+        # Note: Don't commit here, let the caller handle the transaction
         return self.count
 
 

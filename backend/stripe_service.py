@@ -3,7 +3,7 @@ import stripe
 import json
 from typing import Dict, Any, Optional, Tuple, List
 from sqlalchemy.orm import Session
-from models import User, UserSubscription
+from models import User, UserSubscription, ExtractionCounter
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import HTTPException, status
@@ -407,7 +407,11 @@ class StripeService:
                 
             subscription.cancel_at_period_end = stripe_sub['cancel_at_period_end']
             
+            extraction_counter = ExtractionCounter.get_or_create_counter(db, subscription.user_id)
+            extraction_counter.reset_counter(db)
+            
             db.commit()
+            print(f"Reset extraction counter for user {subscription.user_id} due to subscription update")
             print(f"Updated subscription {stripe_sub['id']} to status: {stripe_sub['status']}")
             return True
             
