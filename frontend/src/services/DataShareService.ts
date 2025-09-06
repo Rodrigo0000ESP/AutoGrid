@@ -2,7 +2,7 @@ import type { Job } from '../types/job';
 import { getAuthToken, isAuthenticated } from './authService';
 
 // Get API base URL from environment variables or use default
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 // Types
 type NotificationType = 'success' | 'error' | 'info';
@@ -52,13 +52,12 @@ class DataShareService {
         ...filters,
       });
 
-      const response = await this.fetchWithAuth(
-        `${this.apiBaseUrl}/jobs?${params.toString()}`,
-        {
-          method: 'GET',
-          headers: this.getHeaders(token),
-        }
-      );
+      // Ensure consistent URL format without trailing slashes
+      const url = `${this.apiBaseUrl}/jobs?${params.toString()}`;
+      const response = await this.fetchWithAuth(url, {
+        method: 'GET',
+        headers: this.getHeaders(token),
+      });
 
       return await response.json();
     } catch (error) {
@@ -292,7 +291,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
+      const response = await fetch(`${this.apiBaseUrl}/jobs`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -326,7 +325,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
+      const response = await fetch(`${this.apiBaseUrl}/jobs`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -14,13 +14,21 @@ load_dotenv()
 app = FastAPI()
 
 # Configurar CORS
+# Lista de orígenes permitidos
+allowed_origins = [
+    "http://localhost:4321",  # Tu frontend local
+    "https://autogrid.net",   # Tu dominio de producción
+    "chrome-extension://gmfhflhogdfhgegedmffabnejkcapcbj"
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*", "chrome-extension://gmfhflhogdfhgegedmffabnejkcapcbj"],
-    allow_origin_regex="chrome-extension://.*",  # Permitir cualquier extensión de Chrome
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https://[a-zA-Z0-9-]+\.autogrid\.net$",  # Subdominios de autogrid.net
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    max_age=600,  # Cache preflight response for 10 minutes
 )
 
 # Crear tablas de la base de datos
