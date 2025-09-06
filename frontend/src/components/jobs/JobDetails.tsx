@@ -48,7 +48,7 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
     try {
       await dataShareService.deleteJob(job.id);
       // Redirect to jobs list after successful deletion
-      window.location.href = '/jobs';
+      window.location.href = '/dashboard';
     } catch (error) {
       console.error('Error deleting job:', error);
       setError('Failed to delete job. Please try again.');

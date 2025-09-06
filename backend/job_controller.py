@@ -8,7 +8,9 @@ from pydantic import BaseModel
 from pagination import PaginatedResult, PaginationParams
 from BaseRepository import SessionLocal
 from job_service import JobService
-from models import JobType, JobStatus, User, ExtractionCounter
+from models import JobType, JobStatus, User, ExtractionCounter, Job
+from plan_features import PlanType
+from plan_middleware import PlanChecker
 from jwt_utils import get_current_user
 from html_parser import HtmlParser
 from llm_job_parser import LlmJobParser
@@ -126,7 +128,7 @@ def job_creation_workflow(
         
         # Check if user has reached extraction limit
         counter = ExtractionCounter.get_or_create_counter(db, current_user["id"])
-        if counter.count >= plan_details.get('max_extractions', 10):  # Default to 10 if not set
+        if counter.count >= plan_details.get('max_extractions', 10) and plan_details.get('max_extractions', 10)>0:  # Default to 10 if not set
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You have reached your monthly extraction limit. Please upgrade your plan to continue."
@@ -142,7 +144,8 @@ def job_creation_workflow(
             parsed_text=pre_parsed_data["content"],
             url=request_data.url,
             title=request_data.title,
-            portal=pre_parsed_data.get("portal")
+            portal=pre_parsed_data.get("portal"),
+            structured_data=pre_parsed_data.get("structured_data")
         )
 
         # 3. Save the job offer
@@ -245,9 +248,20 @@ async def export_jobs_to_excel(
     """
     Export all jobs to an Excel file.
     
+    Only available for users with an Unlimited plan.
+    
     Returns:
         Excel file containing all jobs
     """
+    # Check if user has unlimited plan
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, db.query(User).filter(User.id == current_user["id"]).first())
+    
+    if plan_name != PlanType.UNLIMITED.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Excel export is only available for Unlimited plan subscribers"
+        )
+    
     try:
         export_service = JobExportService()
         filepath = export_service.export_jobs(db, current_user["id"])

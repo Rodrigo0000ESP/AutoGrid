@@ -33,7 +33,7 @@ class LlmJobParser:
                 print(f"Error initializing OpenAI client: {str(e)}. Using test mode.")
                 self.test_mode = True
     
-    def parse_job_listing(self, parsed_text: Dict[str, Any], url: Optional[str] = None, title: Optional[str] = None,company: Optional[str] = None,location: Optional[str] = None,job_type: Optional[str] = None,portal: Optional[str] = None) -> Dict[str, Any]:
+    def parse_job_listing(self, parsed_text: Dict[str, Any], url: Optional[str] = None, title: Optional[str] = None,company: Optional[str] = None,location: Optional[str] = None,job_type: Optional[str] = None,portal: Optional[str] = None,structured_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
         Parse job listing text using GPT-3.5 Turbo to extract structured job data.
         For known job portals, uses both structured data and content.
@@ -73,7 +73,7 @@ class LlmJobParser:
         
         
         # Create prompt for the LLM
-        prompt = self._create_extraction_prompt(parsed_text, url, title, portal, company, location, job_type)
+        prompt = self._create_extraction_prompt(parsed_text, url, title, portal, company, location, job_type,structured_data)
         
         if not self.client:
             print("API key not set or client not initialized. Falling back to test mode.")
@@ -144,8 +144,16 @@ class LlmJobParser:
         except:
             return None
     
-    def _create_extraction_prompt(self, parsed_data: Dict, url: Optional[str], title: Optional[str], portal: Optional[str] = None, company: Optional[str] = None, location: Optional[str] = None, job_type: Optional[str] = None) -> str:
+    def _create_extraction_prompt(self, parsed_data: Dict, url: Optional[str], title: Optional[str], portal: Optional[str] = None, company: Optional[str] = None, location: Optional[str] = None, job_type: Optional[str] = None, structured_data: Optional[Dict[str, Any]] = None) -> str:
         """Create a structured prompt for the LLM"""
+
+        if structured_data:
+            job_description = structured_data.get("description", "")
+            job_type = structured_data.get("job_type", "")
+            company = structured_data.get("company", "")
+            location = structured_data.get("location", "")
+            title = structured_data.get("title", "")
+
         context = ""
         if url:
             context += f"URL: {url}\n"
@@ -161,17 +169,6 @@ class LlmJobParser:
             context += f"Job Type: {job_type}\n"
 
         job_description = parsed_data.get("content", "")
-            
-        # Add any prefilled data to the context
-        if company or location or job_type:
-            context += "\nPre-extracted information (verify and use if accurate):\n"
-            if company:
-                context += f"Company: {company}\n"
-            if location:
-                context += f"Location: {location}\n"
-            if job_type:
-                context += f"Job Type: {job_type}\n"
-
         
         prompt = f"""
 {context}

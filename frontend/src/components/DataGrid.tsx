@@ -280,7 +280,7 @@ const DataGrid = () => {
 
   // Handle page size change
   const handlePageSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSize = parseInt(e.target.value, 20);
+    const newSize = parseInt(e.target.value, 10);
     setPageSize(newSize);
     setCurrentPage(1);
     debouncedFetchJobs(searchQuery, statusFilter, jobTypeFilter, 1, newSize);
