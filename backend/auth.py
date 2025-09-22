@@ -29,12 +29,12 @@ class AuthRepository(BaseRepository[User]):
         if existing_email:
             # No lanzamos excepción aquí, solo devolvemos None
             # La excepción se manejará en el controlador
-            return None, "El correo electrónico ya está registrado"
+            return None, "This email is already registered"
             
         # Verificar si el nombre de usuario ya existe
         existing_username = db.query(User).filter(User.username == username).first()
         if existing_username:
-            return None, "El nombre de usuario ya está en uso"
+            return None, "This username is already in use"
             
         # Si no existe, crear el usuario
         hashed_password = self.get_password_hash(password)
@@ -56,4 +56,4 @@ class AuthRepository(BaseRepository[User]):
             return user, None
         except Exception as e:
             db.rollback()
-            return None, "Error al crear el usuario: " + str(e)
+            return None, "Error Creating User: " + str(e)
