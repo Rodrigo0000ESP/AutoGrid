@@ -166,12 +166,21 @@ import Layout from '../layouts/Layout.astro';
                     </p>
                   ` : ''}
                 </div>
-                <a 
-                  href="/pricing" 
-                  class="mt-4 md:mt-0 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                  ${plan === 'free' ? 'Upgrade Plan' : 'Manage Subscription'}
-                </a>
+                ${plan && plan.toLowerCase() === 'free' ? `
+                  <a 
+                    href="/pricing" 
+                    class="mt-4 md:mt-0 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Upgrade Plan
+                  </a>
+                ` : `
+                  <button 
+                    id="manage-subscription-btn"
+                    class="mt-4 md:mt-0 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Manage Subscription
+                  </button>
+                `}
               </div>
             </div>
 
@@ -228,6 +237,42 @@ import Layout from '../layouts/Layout.astro';
           </div>
         </main>
       `;
+
+      // After rendering, wire Manage Subscription button if present
+      try {
+        const btn = document.getElementById('manage-subscription-btn') as HTMLButtonElement | null;
+        if (btn) {
+          import('../services/subscriptionService.js')
+            .then(({ openBillingPortal }) => {
+              btn.addEventListener('click', async () => {
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Opening...';
+                try {
+                  const { url } = await openBillingPortal();
+                  if (!url) throw new Error('No portal URL');
+                  window.location.href = url;
+                } catch (e: unknown) {
+                  console.error('Failed to open Billing Portal', e);
+                  const msg = (e instanceof Error) ? e.message : 'Could not open Billing Portal. Please try again.';
+                  alert(msg);
+                  if (msg.toLowerCase().includes('no tiene una suscripción') || msg.toLowerCase().includes('no tiene un customer')) {
+                    window.location.href = '/pricing';
+                    return;
+                  }
+                } finally {
+                  btn.disabled = false;
+                  btn.innerHTML = original;
+                }
+              });
+            })
+            .catch((e) => {
+              console.error('Failed to load subscriptionService for portal', e);
+            });
+        }
+      } catch (e) {
+        console.error('Error wiring Manage Subscription button', e);
+      }
     }
   </script>
 </Layout>

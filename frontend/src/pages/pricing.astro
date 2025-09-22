@@ -7,6 +7,8 @@ const loadStripe = () => import('@stripe/stripe-js').then(mod => mod.loadStripe)
 
 // Get Stripe public key from environment variables
 const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
+const STRIPE_PRICE_ID_PRO = import.meta.env.STRIPE_PRICE_ID_PRO;
+const STRIPE_PRICE_ID_UNLIMITED = import.meta.env.STRIPE_PRICE_ID_UNLIMITED;
 ---
 
 <!-- Client-side script for handling Stripe Checkout -->
@@ -169,7 +171,7 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
                 >
                     <button 
                         class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        data-price-id="price_1RvOhVFmG9X9SvcMlqpOu2rZ"
+                        data-price-id={STRIPE_PRICE_ID_PRO}
                     >
                         Get Started
                     </button>
@@ -193,11 +195,10 @@ const STRIPE_PUBLIC_KEY = import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY;
                 >
                     <button 
                         class="checkout-button w-full mt-6 bg-blue-600 border border-transparent rounded-md py-2 px-4 flex items-center justify-center text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        data-price-id="price_1RvkGDFmG9X9SvcMZDKDWfxT"
+                        data-price-id={STRIPE_PRICE_ID_UNLIMITED}
                     >
                         Get Started
                     </button>
-                    {/* Replace price_xyz789 with your actual Stripe Price ID */}
                 </Card>
             </div>
 

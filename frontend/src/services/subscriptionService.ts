@@ -95,7 +95,29 @@ export const getPlans = async () => {
     return [];
   }
 };
-
+    
+/**
+ * Open Stripe Billing Portal to manage subscription
+ */
+export async function openBillingPortal(): Promise<{ url: string }> {
+  try {
+    // Prefer an explicit portal login URL from env if provided
+    const envUrl = (import.meta as any)?.env?.PUBLIC_STRIPE_PORTAL_LOGIN_URL as string | undefined;
+    if (envUrl) {
+      return { url: envUrl };
+    }
+    const response = await api.post('/subscription/portal', {});
+    const url = response?.data?.data?.url;
+    if (!url) throw new Error('No portal URL returned');
+    return { url };
+  } catch (error: any) {
+    console.error('Error creating Billing Portal session:', error);
+    if (error.response) {
+      throw new Error(error.response.data?.detail || 'Failed to open Billing Portal.');
+    }
+    throw new Error('Network error while opening Billing Portal.');
+  }
+}
 /**
  * Create a checkout session for a plan
  * @param {string} priceId - Stripe price ID
