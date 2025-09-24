@@ -8,7 +8,9 @@ const description = 'Start organizing your job search today';
 // Check if user is logged in - using a more reliable check
 let isLoggedIn = false;
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('autogrid_token');
+  const ltk = localStorage.getItem('autogrid_token');
+  const stk = sessionStorage.getItem?.('autogrid_token');
+  const token = ltk || stk || '';
   // Check if token exists and is not empty
   isLoggedIn = !!token && token.length > 10;
 }
@@ -21,7 +23,9 @@ if (typeof window !== 'undefined') {
     
     // Check auth status on client side
     const checkAuth = () => {
-      const token = localStorage.getItem('autogrid_token');
+      const ltk = localStorage.getItem('autogrid_token');
+      const stk = sessionStorage.getItem('autogrid_token');
+      const token = ltk || stk || '';
       const isAuthed = !!token && token.length > 10;
       
       // If not on the register page but we have a token, redirect to dashboard
@@ -88,6 +92,7 @@ if (typeof window !== 'undefined') {
               required
               class="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
               placeholder="Password"
+              onfocus="document.getElementById('password-requirements').classList.remove('hidden')"
             />
           </div>
           <div>
@@ -101,18 +106,48 @@ if (typeof window !== 'undefined') {
               placeholder="Confirm Password"
             />
           </div>
+          
+        </div>
+        <div id="password-requirements" class="mt-2 w-full bg-gray-50 border border-gray-200 rounded-md p-3 text-sm text-gray-600">
+          <p class="font-medium mb-2 text-gray-800">Password must include:</p>
+          <ul class="space-y-2">
+            <li class="flex items-start">
+              <svg class="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>At least 8 characters</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Uppercase & lowercase letters</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>At least one number</span>
+            </li>
+            <li class="flex items-start">
+              <svg class="h-4 w-4 text-green-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+              </svg>
+              <span>Special character (e.g., !@#$%^&*)</span>
+            </li>
+          </ul>
         </div>
 
         <div class="flex items-center">
           <input
             id="terms"
-            name="terms"
+            name="terms-of-service"
             type="checkbox"
             required
             class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
           />
-          <label for="terms" class="ml-2 block text-sm text-gray-900">
-            I agree to the <a href="/terms" class="text-blue-600 hover:text-blue-500">Terms of Service</a> and <a href="/privacy" class="text-blue-600 hover:text-blue-500">Privacy Policy</a>
+          <label for="terms-of-service" class="ml-2 block text-sm text-gray-900">
+            I agree to the <a href="/terms-of-service" class="text-blue-600 hover:text-blue-500">Terms of Service</a> and <a href="/privacy-policy" class="text-blue-600 hover:text-blue-500">Privacy Policy</a>
           </label>
         </div>
 

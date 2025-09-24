@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from models import User, UserSubscription
 from BaseRepository import BaseRepository
+import re
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -15,6 +16,30 @@ class AuthRepository(BaseRepository[User]):
 
     def get_password_hash(self, password: str) -> str:
         return pwd_context.hash(password)
+
+    @staticmethod
+    def validate_password_requirements(password: str) -> str | None:
+        """
+        Validate password strength requirements.
+        Returns None if valid, otherwise returns an error message string.
+        Requirements:
+        - At least 8 characters
+        - At least one lowercase letter
+        - At least one uppercase letter
+        - At least one digit
+        - At least one special character
+        """
+        if not isinstance(password, str) or len(password) < 8:
+            return "Password must be at least 8 characters long."
+        if not re.search(r"[a-z]", password):
+            return "Password must include at least one lowercase letter."
+        if not re.search(r"[A-Z]", password):
+            return "Password must include at least one uppercase letter."
+        if not re.search(r"\d", password):
+            return "Password must include at least one digit."
+        if not re.search(r"[^A-Za-z0-9]", password):
+            return "Password must include at least one special character."
+        return None
 
     def authenticate_user(self, db: Session, username_or_email: str, password: str):
         # Allow authentication by username OR email

@@ -52,7 +52,7 @@ function initRegister() {
     const email = form.elements['email']?.value.trim() || '';
     const password = form.elements['password']?.value || '';
     const confirmPassword = form.elements['confirmPassword']?.value || '';
-    const terms = form.elements['terms']?.checked || false;
+    const terms = form.elements['terms-of-service']?.checked || false;
     
     console.log('Form values:', { username, email, password: '***', confirmPassword: '***', terms });
     
@@ -68,6 +68,13 @@ function initRegister() {
       const errorMsg = 'Passwords do not match';
       console.error('Validation error:', errorMsg);
       showError(errorMsg);
+      return;
+    }
+
+    // Password strength validation (mirror backend)
+    const pwdError = validatePassword(password);
+    if (pwdError) {
+      showError(pwdError);
       return;
     }
     
@@ -112,28 +119,23 @@ function initRegister() {
       }
       
       const data = await response.json();
-      console.log('Registration successful, received data:', { token: data.token ? '***' : 'No token' });
+      console.log('Registration successful. Verification required.', data);
       
-      // Store the token in localStorage if available
-      if (data.token) {
-        localStorage.setItem('autogrid_token', data.token);
-        
-        // Show success message
-        showSuccess('Registration successful! Redirecting to dashboard...');
-        
-        // Redirect to home page after a short delay
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1500);
-      } else {
-        throw new Error('No authentication token received');
-      }
+      // New flow: we require email verification before login
+      showSuccess('Registration successful! Please check your email to verify your account.');
+      try { sessionStorage.setItem('pendingVerificationEmail', email); } catch {}
+      
+      // Redirect to a static screen that explains next steps
+      setTimeout(() => {
+        window.location.href = '/check-email';
+      }, 1500);
       
     } catch (error) {
       console.error('Registration error:', error);
       const errorMessage = error.message || 'An error occurred during registration. Please try again.';
       console.error('Error details:', errorMessage);
       showError(errorMessage);
+      try { sessionStorage.removeItem('pendingVerificationEmail'); } catch {}
       
       // Reset button state on error
       submitBtn.disabled = false;
@@ -142,6 +144,25 @@ function initRegister() {
   });
   
   console.log('Register form initialization complete');
+}
+
+function validatePassword(pwd) {
+  if (typeof pwd !== 'string' || pwd.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (!/[a-z]/.test(pwd)) {
+    return 'Password must include at least one lowercase letter.';
+  }
+  if (!/[A-Z]/.test(pwd)) {
+    return 'Password must include at least one uppercase letter.';
+  }
+  if (!/\d/.test(pwd)) {
+    return 'Password must include at least one digit.';
+  }
+  if (!/[^A-Za-z0-9]/.test(pwd)) {
+    return 'Password must include at least one special character.';
+  }
+  return '';
 }
 
 // Initialize when the DOM is fully loaded

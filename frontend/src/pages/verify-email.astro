@@ -1,0 +1,74 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+import '../styles/global.css';
+
+const title = 'Verify your email';
+const description = 'Completing your registration...';
+---
+
+<AuthLayout {title} {description}>
+  <div class="mt-8 max-w-md mx-auto">
+    <div class="bg-white shadow rounded-lg p-6 text-center">
+      <div id="verifyIcon" class="mx-auto mb-3 hidden">
+        <svg class="h-8 w-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h2 id="verifyTitle" class="text-lg font-semibold text-gray-900 mb-1">Verifying...</h2>
+      <p id="verifyMessage" class="text-sm text-gray-600">Please wait while we verify your email.</p>
+      <div class="mt-4">
+        <a href="/login" class="text-blue-600 hover:text-blue-500">Go to login</a>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    (function () {
+      const init = async () => {
+        const msg = document.getElementById('verifyMessage');
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token') || '';
+
+        if (!token) {
+          if (msg) {
+            msg.textContent = 'Missing or invalid token.';
+            msg.className = 'text-red-600 text-sm';
+          }
+          return;
+        }
+
+        try {
+          const apiBase = (window?.__ENV__?.VITE_API_BASE_URL) || 'http://localhost:8000';
+          const url = `${apiBase.replace(/\/+$/, '')}/auth/verify-email?token=${encodeURIComponent(token)}`;
+          const res = await fetch(url);
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data?.detail || 'Verification failed');
+          if (msg) {
+            msg.textContent = data?.message || 'Email verified successfully. You can now sign in.';
+            msg.className = 'text-green-600 text-sm';
+          }
+          const titleEl = document.getElementById('verifyTitle');
+          const iconEl = document.getElementById('verifyIcon');
+          if (titleEl) titleEl.textContent = 'Email verified!';
+          if (iconEl) iconEl.classList.remove('hidden');
+          // Auto-redirect to login after 2 seconds
+          setTimeout(() => { window.location.href = '/login'; }, 2000);
+        } catch (err) {
+          console.error('Verify email error', err);
+          if (msg) {
+            msg.textContent = err?.message || 'Verification failed. Your link may have expired.';
+            msg.className = 'text-red-600 text-sm';
+          }
+          const titleEl = document.getElementById('verifyTitle');
+          if (titleEl) titleEl.textContent = 'Verification failed';
+        }
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</AuthLayout>

@@ -6,7 +6,10 @@ const AUTH_TOKEN_KEY = 'autogrid_token';
  */
 export const getAuthToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem(AUTH_TOKEN_KEY);
+  return (
+    localStorage.getItem(AUTH_TOKEN_KEY) ||
+    (typeof sessionStorage !== 'undefined' ? sessionStorage.getItem(AUTH_TOKEN_KEY) : null)
+  );
 };
 
 /**
@@ -24,6 +27,9 @@ export const setAuthToken = (token: string): void => {
 export const removeAuthToken = (): void => {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(AUTH_TOKEN_KEY);
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    }
   }
 };
 

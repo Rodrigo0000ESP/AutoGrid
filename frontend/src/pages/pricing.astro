@@ -15,31 +15,14 @@ const STRIPE_PRICE_ID_UNLIMITED = import.meta.env.STRIPE_PRICE_ID_UNLIMITED;
 <script>
   // This will only run in the browser
   if (import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
-    // Check if user is logged in with detailed debugging
-    const isLoggedIn = () => {
+    // Centralized auth check
+    const isLoggedIn = async () => {
       try {
-        const token = localStorage.getItem('autogrid_token');
-        console.log('Auth Token from localStorage:', token ? 'Token exists' : 'No token found');
-        
-        if (token) {
-          try {
-            // Try to parse the token to check if it's valid
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const isExpired = payload.exp * 1000 < Date.now();
-            console.log('Token payload:', {
-              userId: payload.sub,
-              expiresAt: new Date(payload.exp * 1000).toISOString(),
-              isExpired: isExpired ? 'EXPIRED' : 'VALID'
-            });
-            return !isExpired;
-          } catch (parseError) {
-            console.error('Error parsing token:', parseError);
-            return false;
-          }
-        }
-        return false;
-      } catch (error) {
-        console.error('Error accessing localStorage:', error);
+        // @ts-ignore - Vite runtime path is valid in browser
+        const { isAuthenticated } = await import('/src/services/authService.ts');
+        return isAuthenticated();
+      } catch (e) {
+        console.error('Error importing isAuthenticated:', e);
         return false;
       }
     };
@@ -72,7 +55,7 @@ const STRIPE_PRICE_ID_UNLIMITED = import.meta.env.STRIPE_PRICE_ID_UNLIMITED;
           event.preventDefault();
           
           // Check if user is logged in
-          if (!isLoggedIn()) {
+          if (!(await isLoggedIn())) {
             alert('Please log in to subscribe to a plan.');
             redirectToLogin();
             return;

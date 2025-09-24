@@ -1,4 +1,4 @@
-import { isAuthenticated, logout } from '../services/authService';
+import { isAuthenticated } from '../services/authService';
 
 export function setupAuthListener() {
   // Only run in browser
@@ -9,9 +9,9 @@ export function setupAuthListener() {
 
   // Listen for storage events (in case of logout from another tab)
   window.addEventListener('storage', (event) => {
-    if (event.key === 'autogrid_token' && !event.newValue) {
-      // Token was removed in another tab
-      handleLogout();
+    if (event.key === 'autogrid_token') {
+      // Token added or removed in another tab
+      checkAuthStatus();
     }
   });
 
@@ -20,26 +20,44 @@ export function setupAuthListener() {
 }
 
 function checkAuthStatus() {
-  // Skip for login/register pages to prevent redirect loops
-  if (['/login', '/register', '/forgot-password'].includes(window.location.pathname)) {
-    return;
-  }
+  const path = window.location.pathname;
+  // Public pages (exact matches)
+  const publicPaths = new Set([
+    '/',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/check-email',
+    '/verify-email',
+    '/pricing',
+    '/support',
+    '/how-it-works',
+    '/subscription/success',
+    '/subscription/canceled',
+  ]);
+  // Protected sections (prefix matches)
+  const protectedPrefixes = ['/dashboard', '/jobs', '/plan_details', '/subscription', '/account'];
 
-  if (!isAuthenticated()) {
-    handleLogout();
+  const isPublic = publicPaths.has(path);
+  const isProtected = protectedPrefixes.some((p) => path.startsWith(p));
+
+  if (isPublic) return; // Never redirect on public pages
+
+  if (isProtected && !isAuthenticated()) {
+    // Redirect unauthenticated users trying to access protected pages
+    window.location.href = '/login';
   }
 }
 
 function handleLogout() {
-  // Clear any existing timeouts to prevent multiple executions
-  clearTimeout((window as any).logoutTimer);
-  
-  // Perform any necessary cleanup here
-  // For example: clear tokens, reset user state, etc.
-  console.log('Logging out...');
-  
-  // Optional: You can add any post-logout logic here
-  // without redirecting the user
+  // If user becomes unauthenticated while on a protected page, send to login
+  const path = window.location.pathname;
+  const protectedPrefixes = ['/dashboard', '/jobs', '/plan_details', '/subscription', '/account'];
+  const isProtected = protectedPrefixes.some((p) => path.startsWith(p));
+  if (isProtected) {
+    window.location.href = '/login';
+  }
 }
 
 // Export a function to manually trigger auth check

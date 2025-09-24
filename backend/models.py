@@ -91,6 +91,17 @@ class PasswordReset(Base):
     # Relationship with user
     user = relationship("User", back_populates="password_resets")
 
+
+class EmailVerification(Base):
+    __tablename__ = 'email_verifications'
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False, index=True)
+    token = Column(String, unique=True, nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    verified_at = Column(DateTime, nullable=True)
+    used = Column(Boolean, default=False)
+
 T = TypeVar('T')
 
 class PaginationParams(BaseModel):

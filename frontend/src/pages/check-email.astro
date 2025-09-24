@@ -1,0 +1,69 @@
+---
+import AuthLayout from '../layouts/AuthLayout.astro';
+import '../styles/global.css';
+
+const title = 'Check your email';
+const description = 'We sent you a verification link to activate your account';
+---
+
+<AuthLayout {title} {description}>
+  <div class="mt-8 max-w-md mx-auto">
+    <div class="bg-white shadow rounded-lg p-6 text-center">
+      <div class="mx-auto mb-3">
+        <svg class="h-12 w-12 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      </div>
+      <h2 class="text-xl font-semibold text-gray-900 mb-1">Check your email</h2>
+      <p id="emailText" class="text-sm text-gray-600">We've sent a verification link to your email. Click the link to activate your account.</p>
+
+      <div class="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <a href="https://mail.google.com/" target="_blank" rel="noopener" class="inline-flex items-center justify-center px-3 py-2 rounded-md bg-red-500 text-white hover:bg-red-600 text-sm">Open Gmail</a>
+        <a href="https://outlook.live.com/mail/0/inbox" target="_blank" rel="noopener" class="inline-flex items-center justify-center px-3 py-2 rounded-md bg-blue-500 text-white hover:bg-blue-600 text-sm">Open Outlook</a>
+      </div>
+
+      <div class="mt-4 text-xs text-gray-500 text-left">
+        <p class="mb-1">Tips:</p>
+        <ul class="list-disc list-inside space-y-1">
+          <li>Check your spam or junk folder.</li>
+          <li>It can take up to a minute to arrive.</li>
+          <li>If the email is wrong, <a href="/register" class="text-blue-600 hover:text-blue-500">sign up again</a>.</li>
+        </ul>
+      </div>
+
+      <div class="mt-6 text-sm text-gray-600">
+        <span>Redirecting to login in <span id="countdown">8</span>s...</span>
+        <div class="mt-2">
+          <a href="/login" class="text-blue-600 hover:text-blue-500">Go to login now</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    (function(){
+      // Show the user's email if saved by registration flow
+      try {
+        const email = sessionStorage.getItem('pendingVerificationEmail');
+        const el = document.getElementById('emailText');
+        if (email && el) {
+          el.textContent = `We've sent a verification link to ${email}. Click the link to activate your account.`;
+        }
+      } catch {}
+
+      // Countdown redirect
+      let secs = 8;
+      const cd = document.getElementById('countdown');
+      const tick = () => {
+        secs -= 1;
+        if (cd) cd.textContent = String(secs);
+        if (secs <= 0) {
+          window.location.href = '/login';
+        } else {
+          setTimeout(tick, 1000);
+        }
+      };
+      setTimeout(tick, 1000);
+    })();
+  </script>
+</AuthLayout>

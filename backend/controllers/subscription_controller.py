@@ -68,7 +68,7 @@ async def create_checkout_session(
         if StripeService.has_active_subscription(user.stripe_customer_id):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User already has an active subscription."
+                detail="Request failed: User already has an active subscription. Please go to support for assistance."
             )
 
         

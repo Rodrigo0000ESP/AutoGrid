@@ -8,8 +8,9 @@ const description = 'Sign in to continue tracking your job applications';
 // Check if user is logged in - using a more reliable check
 let isLoggedIn = false;
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('autogrid_token');
-  // Check if token exists and is not empty
+  const ltk = localStorage.getItem('autogrid_token');
+  const stk = sessionStorage.getItem?.('autogrid_token');
+  const token = ltk || stk || '';
   isLoggedIn = !!token && token.length > 10;
 }
 
@@ -22,7 +23,9 @@ if (typeof window !== 'undefined') {
     
     // Check auth status on client side
     const checkAuth = () => {
-      const token = localStorage.getItem('autogrid_token');
+      const ltk = localStorage.getItem('autogrid_token');
+      const stk = sessionStorage.getItem('autogrid_token');
+      const token = ltk || stk || '';
       const isAuthed = !!token && token.length > 10;
       
       // If not on the login page but we have a token, redirect to dashboard

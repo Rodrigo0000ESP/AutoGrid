@@ -17,8 +17,8 @@ api.interceptors.request.use(
     // Only try to access localStorage in the browser environment
     if (typeof window !== 'undefined') {
       try {
-        const token = localStorage.getItem('autogrid_token');
-        console.log('JWT Token from localStorage:', token ? 'Token found' : 'No token found');
+        const token = getAuthToken();
+        console.log('JWT Token from storage:', token ? 'Token found' : 'No token found');
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
           console.log('Request config with auth header:', {
@@ -32,7 +32,7 @@ api.interceptors.request.use(
             data: config.data,
           });
         } else {
-          console.warn('No JWT token found in localStorage. User may not be logged in.');
+          console.warn('No JWT token found in storage. User may not be logged in.');
         }
       } catch (error) {
         console.error('Error accessing localStorage:', error);

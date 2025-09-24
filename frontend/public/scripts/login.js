@@ -102,16 +102,12 @@ function initLogin() {
       const data = await response.json();
       console.log('Login successful, received data:', { token: data.token ? '***' : 'No token' });
       
-      // Store the token in localStorage
+      // Store the token honoring 'Remember me'
       if (data.token) {
-        localStorage.setItem('autogrid_token', data.token);
-        
-        // Handle remember me if needed
         if (rememberMe) {
-          // Set a cookie that expires in 30 days
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + 30);
-          document.cookie = `autogrid_token=${data.token}; expires=${expiryDate.toUTCString()}; path=/`;
+          localStorage.setItem('autogrid_token', data.token);
+        } else {
+          sessionStorage.setItem('autogrid_token', data.token);
         }
         
         console.log('Redirecting to home page...');

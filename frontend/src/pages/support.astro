@@ -68,7 +68,7 @@ import '../styles/global.css';
                 <div>
                   <h3 class="text-sm font-medium text-gray-900">DataGrid Documentation</h3>
                   <p class="mt-1 text-sm text-gray-600">Learn how to use all the features of our DataGrid component.</p>
-                  <a href="/docs/datagrid" class="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-500">
+                  <a href="/how-it-works" class="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-500">
                     View documentation
                     <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -79,7 +79,7 @@ import '../styles/global.css';
                 <div>
                   <h3 class="text-sm font-medium text-gray-900">Frequently Asked Questions</h3>
                   <p class="mt-1 text-sm text-gray-600">Find answers to common questions about AutoGrid.</p>
-                  <a href="/faq" class="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-500">
+                  <a href="/how-it-works" class="mt-2 inline-flex items-center text-sm text-blue-600 hover:text-blue-500">
                     View FAQ
                     <svg class="ml-1 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -89,8 +89,7 @@ import '../styles/global.css';
                 
                 <div class="pt-4 border-t border-gray-200">
                   <h3 class="text-sm font-medium text-gray-900">Need immediate help?</h3>
-                  <p class="mt-1 text-sm text-gray-600">Email us directly at <a href="mailto:support@autogrid.app" class="text-blue-600 hover:text-blue-500">support@autogrid.app</a></p>
-                  <p class="mt-1 text-sm text-gray-600">Or call us at <a href="tel:+1234567890" class="text-blue-600 hover:text-blue-500">+1 (234) 567-890</a></p>
+                  <p class="mt-1 text-sm text-gray-600">Email us directly at <a href="mailto:autogridjob@gmail.com" class="text-blue-600 hover:text-blue-500">autogridjob@gmail.com</a></p>
                 </div>
               </div>
             </div>
@@ -101,37 +100,72 @@ import '../styles/global.css';
   </div>
 
   <script is:inline>
-    document.addEventListener('DOMContentLoaded', () => {
-      const form = document.getElementById('supportForm');
-      const formSuccess = document.getElementById('formSuccess');
-      
-      if (form) {
+    // Use module script to import our email service
+    (function() {
+      const init = async () => {
+        const form = document.getElementById('supportForm');
+        const formSuccess = document.getElementById('formSuccess');
+        if (!form) return;
+
+        // Dynamically import to ensure Astro bundles it
+        const { sendSupportMessage } = await import('/src/services/emailService.ts');
+
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
-          
+
           const formData = new FormData(form);
-          const data = Object.fromEntries(formData.entries());
-          
+          const payload = {
+            name: String(formData.get('name') || ''),
+            email: String(formData.get('email') || ''),
+            subject: String(formData.get('subject') || ''),
+            message: String(formData.get('message') || ''),
+          };
+
           try {
-            // Here you would typically send the form data to your backend
-            // For now, we'll just show the success message
-            console.log('Form submitted:', data);
-            
-            // Show success message
-            formSuccess.classList.remove('hidden');
+            // Basic validation
+            if (!payload.name || !payload.email || !payload.subject || !payload.message) {
+              throw new Error('Please fill in all fields.');
+            }
+
+            // Disable button while sending
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalHtml = submitBtn ? submitBtn.innerHTML : '';
+            if (submitBtn) {
+              submitBtn.setAttribute('disabled', 'true');
+              submitBtn.innerHTML = `
+                <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Sending...`;
+            }
+
+            await sendSupportMessage(payload);
+
+            if (formSuccess) {
+              formSuccess.textContent = "Message sent successfully!";
+              formSuccess.classList.remove('hidden');
+            }
             form.reset();
-            
-            // Hide success message after 5 seconds
-            setTimeout(() => {
-              formSuccess.classList.add('hidden');
-            }, 5000);
-            
-          } catch (error) {
-            console.error('Error submitting form:', error);
-            alert('There was an error sending your message. Please try again.');
+            setTimeout(() => formSuccess && formSuccess.classList.add('hidden'), 5000);
+          } catch (err) {
+            console.error('Error submitting form:', err);
+            alert(err?.message || 'There was an error sending your message. Please try again.');
+          } finally {
+            const submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) {
+              submitBtn.removeAttribute('disabled');
+              submitBtn.innerHTML = 'Send Message';
+            }
           }
         });
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
       }
-    });
+    })();
   </script>
 </Layout>
