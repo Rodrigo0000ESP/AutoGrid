@@ -1,5 +1,6 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 from models import User, UserSubscription
 from BaseRepository import BaseRepository
 
@@ -15,8 +16,11 @@ class AuthRepository(BaseRepository[User]):
     def get_password_hash(self, password: str) -> str:
         return pwd_context.hash(password)
 
-    def authenticate_user(self, db: Session, username: str, password: str):
-        user = db.query(User).filter(User.username == username).first()
+    def authenticate_user(self, db: Session, username_or_email: str, password: str):
+        # Allow authentication by username OR email
+        user = db.query(User).filter(
+            or_(User.username == username_or_email, User.email == username_or_email)
+        ).first()
         if not user:
             return None
         if not self.verify_password(password, user.hashed_password):

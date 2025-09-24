@@ -63,6 +63,14 @@ async def create_checkout_session(
             )
             user.stripe_customer_id = customer.id
             db.commit()
+
+        # Check if the user already has an active subscription
+        if StripeService.has_active_subscription(user.stripe_customer_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User already has an active subscription."
+            )
+
         
         # Crear la sesión de pago
         success_url = f"{FRONTEND_URL}/subscription/success?session_id={{CHECKOUT_SESSION_ID}}"

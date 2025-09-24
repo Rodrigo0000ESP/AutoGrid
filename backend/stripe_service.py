@@ -94,6 +94,37 @@ class StripeService:
             )
     
     @staticmethod
+    def has_active_subscription(customer_id: str) -> bool:
+        """Check if a customer has an active subscription"""
+        try:
+            subscriptions = stripe.Subscription.list(
+                customer=customer_id,
+                status='active',
+                limit=1
+            )
+            if subscriptions.data:
+                return True
+
+            subscriptions = stripe.Subscription.list(
+                customer=customer_id,
+                status='trialing',
+                limit=1
+            )
+            if subscriptions.data:
+                return True
+
+            return False
+        except stripe.error.StripeError as e:
+            print(f"Stripe error checking for active subscription: {str(e)}")
+            # In case of an error, we should probably prevent creating a new subscription
+            # until the issue is resolved. Depending on the desired behavior, you might
+            # want to return True here to be safe.
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not verify subscription status. Please try again later."
+            )
+
+    @staticmethod
     def create_checkout_session(
         customer_id: str,
         price_id: str,

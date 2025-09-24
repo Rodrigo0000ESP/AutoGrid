@@ -24,7 +24,8 @@ class RegisterRequest(BaseModel):
     password: str
 
 class LoginRequest(BaseModel):
-    username: str
+    username: Optional[str] = None
+    email: Optional[str] = None
     password: str
 
 class ForgotPasswordRequest(BaseModel):
@@ -71,7 +72,10 @@ def get_me(current_user: dict = Depends(get_current_user), db: Session = Depends
 @router.post("/login", response_model=AuthResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     repo = AuthRepository()
-    user = repo.authenticate_user(db, request.username, request.password)
+    identifier = request.username or request.email
+    if not identifier:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email is required")
+    user = repo.authenticate_user(db, identifier, request.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     token = create_access_token({"sub": user.username, "id": user.id})

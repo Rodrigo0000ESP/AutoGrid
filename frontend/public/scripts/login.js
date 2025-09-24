@@ -35,7 +35,7 @@ function initLogin() {
     
     // Basic validation
     if (!username || !password) {
-      const errorMsg = 'Please enter both username and password';
+      const errorMsg = 'Please enter your email or username and your password';
       console.error('Validation error:', errorMsg);
       showError(errorMsg);
       return;
@@ -55,15 +55,38 @@ function initLogin() {
     
     try {
       console.log('Sending login request...');
-      // Call login API
-      const response = await fetch('http://localhost:8000/auth/login', {
+      // Determine if the identifier is an email
+      const isEmail = /[^@\s]+@[^@\s]+\.[^@\s]+/.test(username);
+      const url = 'http://localhost:8000/auth/login';
+
+      // Primary attempt: send as email or username based on pattern
+      const primaryBody = isEmail ? { email: username, password } : { username, password };
+      let response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(primaryBody)
       });
       
       console.log('Response status:', response.status);
       
+      // If failed, try the alternate key once (for backends expecting a specific field)
+      if (!response.ok) {
+        try {
+          const altBody = isEmail ? { username, password } : { email: username, password };
+          console.log('Primary attempt failed, retrying with alternate payload...');
+          const retry = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(altBody)
+          });
+          if (retry.ok) {
+            response = retry;
+          }
+        } catch (retryErr) {
+          console.warn('Alternate payload retry failed:', retryErr);
+        }
+      }
+
       if (!response.ok) {
         let errorMessage = 'Login failed. Please check your credentials.';
         try {

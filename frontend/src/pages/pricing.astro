@@ -95,17 +95,34 @@ const STRIPE_PRICE_ID_UNLIMITED = import.meta.env.STRIPE_PRICE_ID_UNLIMITED;
             button.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Processing...';
             
             try {
-              // Import and call the createCheckoutSession function
-              const { createCheckoutSession } = await import('../services/subscriptionService');
-              
-              // Create checkout session using the subscription service
+              // Import subscription helpers on demand
+              const { getSubscriptionStatus, openBillingPortal, createCheckoutSession } = await import('../services/subscriptionService');
+
+              // 1) Ask backend/Stripe for current subscription status to avoid duplicates
+              //    The backend should consult Stripe (customer -> subscriptions) as source of truth
+              const statusResp = await getSubscriptionStatus();
+              const currentStatus = statusResp?.subscription?.status || statusResp?.status;
+
+              // Treat active or trialing as an existing subscription that should be managed via portal
+              if (currentStatus === 'active' || currentStatus === 'trialing') {
+                try {
+                  const { url: portalUrl } = await openBillingPortal();
+                  if (!portalUrl) throw new Error('No billing portal URL available');
+                  window.location.href = portalUrl;
+                  return;
+                } catch (portalErr: unknown) {
+                  const msg = portalErr instanceof Error ? portalErr.message : 'Unable to open Billing Portal.';
+                  console.error('Billing portal error:', portalErr);
+                  alert(msg);
+                  return;
+                }
+              }
+
+              // 2) No active Stripe subscription -> proceed to create a Checkout session
               const { url } = await createCheckoutSession(priceId);
-              
               if (!url) {
                 throw new Error('No checkout URL returned');
               }
-              
-              // Redirect to the Stripe Checkout URL directly
               window.location.href = url;
             } catch (error: unknown) {
               const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
