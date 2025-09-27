@@ -31,7 +31,11 @@ const KNOWN_PORTALS = [
  */
 export async function saveJobOffer({ url, title }) {
     const token = localStorage.getItem("autogrid_token");
-    if (!token) throw new Error("Not authenticated");
+    if (!token) {
+        // Si no hay token, cerrar sesión y redirigir al login
+        logout();
+        throw new Error("SESSION_EXPIRED");
+    }
 
     // Step 1: Get HTML content from the active tab
     console.log("🔍 Extracting HTML content from the page...");
@@ -59,6 +63,17 @@ export async function saveJobOffer({ url, title }) {
         const savedJob = await response.json();
 
         if (!response.ok) {
+            // Si el error es de autenticación (401), cerrar sesión automáticamente
+            if (response.status === 401) {
+                logout();
+                throw new Error("SESSION_EXPIRED");
+            }
+            
+            // Si es error 403, probablemente es un límite de plan
+            if (response.status === 403) {
+                throw new Error(savedJob.detail || "Plan limit exceeded. Please upgrade your plan.");
+            }
+            
             throw new Error(savedJob.detail || "Failed to save job offer.");
         }
 
@@ -67,6 +82,11 @@ export async function saveJobOffer({ url, title }) {
 
     } catch (error) {
         console.error("❌ Error during job offer workflow:", error);
+        // Si es un error de red y el token podría estar expirado, cerrar sesión
+        if (error.message.includes("fetch") || error.message.includes("NetworkError")) {
+            logout();
+            throw new Error("SESSION_EXPIRED");
+        }
         throw new Error(`Failed to save job offer: ${error.message}`);
     }
 }
@@ -177,26 +197,19 @@ async function getActiveTabHTML() {
     });
 }
 
-export async function register({ username, email, password }) {
-    const response = await fetch(`${API_URL}/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, email, password })
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Error registering user");
-    }
-    const data = await response.json();
-    localStorage.setItem("autogrid_token", data.token);
-    return data.user;
-}
 
 export async function login({ username, password }) {
+    // Detectar si el input es un email (contiene @) o un username
+    const isEmail = username.includes('@');
+    const loginData = {
+        password,
+        ...(isEmail ? { email: username } : { username })
+    };
+
     const response = await fetch(`${API_URL}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(loginData)
     });
     if (!response.ok) {
         const error = await response.json();
@@ -215,41 +228,5 @@ export function isLoggedIn() {
     return !!localStorage.getItem("autogrid_token");
 }
 
-/**
- * Requests a password reset for the provided email
- * @param {string} email - User's email
- * @returns {Promise<Object>} - Backend response
- */
-export async function forgotPassword(email) {
-    const response = await fetch(`${API_URL}/auth/forgot-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email })
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Error requesting password reset");
-    }
-    return await response.json();
-}
-
-/**
- * Resets the password using a token
- * @param {string} token - Reset token
- * @param {string} newPassword - New password
- * @returns {Promise<Object>} - Backend response
- */
-export async function resetPassword(token, newPassword) {
-    const response = await fetch(`${API_URL}/auth/reset-password`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, new_password: newPassword })
-    });
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || "Error resetting password");
-    }
-    return await response.json();
-}
 
     

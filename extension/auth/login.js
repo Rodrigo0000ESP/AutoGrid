@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const password = form.elements["password"]?.value.trim() || "";
 
         if (!username || !password) {
-            errorDiv.textContent = "Please complete username and password.";
+            errorDiv.textContent = "Please complete username/email and password.";
             errorDiv.className = "message error";
             errorDiv.style.display = "block";
             return;

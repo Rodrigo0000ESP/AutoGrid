@@ -85,6 +85,23 @@ def create_job(job: JobCreate, current_user: dict = Depends(get_current_user), d
     """
     Create a new job entry
     """
+    # Check job storage limits before proceeding
+    user = db.query(User).filter(User.id == current_user["id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get user's plan details
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+    
+    # Check if user has reached job storage limit
+    job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+    max_storage = plan_details.get('max_store_capacity', 10)
+    if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
+        )
+    
     service = JobService()
     
     try:
@@ -132,6 +149,15 @@ def job_creation_workflow(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You have reached your monthly extraction limit. Please upgrade your plan to continue."
+            )
+        
+        # Check if user has reached job storage limit
+        job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+        max_storage = plan_details.get('max_store_capacity', 10)
+        if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
             )
 
         # 1. Pre-parse HTML
@@ -477,6 +503,23 @@ def save_job_offer(
         "status": "Saved"  # Optional, defaults to "Saved"
     }
     """
+    # Check job storage limits before proceeding
+    user = db.query(User).filter(User.id == current_user["id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get user's plan details
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+    
+    # Check if user has reached job storage limit
+    job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+    max_storage = plan_details.get('max_store_capacity', 10)
+    if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
+        )
+    
     service = JobService()
     
     # Get the job data, using empty strings as defaults for required fields
