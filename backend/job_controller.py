@@ -183,7 +183,7 @@ async def get_jobs(
     request: Request,
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Items per page"),
-    search: str = Query(None, description="Search term"),
+    search_terms: str = Query(None, description="Search term"),
     status: str = Query(None, description="Filter by status"),
     job_type: str = Query(None, description="Filter by job type"),
     is_remote: bool = Query(None, description="Filter by remote jobs"),
@@ -199,7 +199,7 @@ async def get_jobs(
     """
     Get paginated list of jobs with filtering and search capabilities
     
-    - **search**: Search in position, company, description, and location
+    - **search_terms**: Search in position, company, description, and location
     - **status**: Filter by job status (saved, applied, interview, offer, rejected)
     - **job_type**: Filter by job type (full_time, part_time, contract, internship, temporary)
     - **is_remote**: Filter remote jobs
@@ -234,7 +234,7 @@ async def get_jobs(
         db=db,
         page=page,
         page_size=page_size,
-        search_terms=search,
+        search_terms=search_terms,
         **filters
     )
     

@@ -52,8 +52,8 @@ class DataShareService {
         ...filters,
       });
 
-      // Ensure consistent URL format without trailing slashes
-      const url = `${this.apiBaseUrl}/jobs?${params.toString()}`;
+      // Ensure consistent URL format with trailing slash to match backend
+      const url = `${this.apiBaseUrl}/jobs/?${params.toString()}`;
       const response = await this.fetchWithAuth(url, {
         method: 'GET',
         headers: this.getHeaders(token),
@@ -75,7 +75,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs`, {
+      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/`, {
         method: 'GET',
         headers: this.getHeaders(token),
       });
@@ -119,7 +119,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs`, {
+      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/jobs/`, {
         method: 'POST',
         headers: this.getHeaders(token),
         body: JSON.stringify(job),
@@ -291,7 +291,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/jobs`, {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -325,7 +325,7 @@ class DataShareService {
     const token = this.getAuthToken();
 
     try {
-      const response = await fetch(`${this.apiBaseUrl}/jobs`, {
+      const response = await fetch(`${this.apiBaseUrl}/jobs/`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
