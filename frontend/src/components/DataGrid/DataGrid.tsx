@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { Job } from '../../types/job';
 import AddJobModal from '../jobs/AddJobModal';
 import { useJobData, useJobStats, useJobActions } from './hooks';
+import { getPlanCurrentLimits, type PlanUsageResponse } from '../../services/subscriptionService';
 import {
   SearchFilters,
   StatsCards,
@@ -18,6 +19,7 @@ type JobStatus = Job['status'];
 
 const DataGrid = () => {
   const [mode, setMode] = useState<'table' | 'grid'>('table');
+  const [userPlan, setUserPlan] = useState<PlanUsageResponse | null>(null);
 
   // Custom hooks for data management
   const {
@@ -70,9 +72,23 @@ const DataGrid = () => {
     handleJobAdded,
   } = useJobActions();
 
-  // Initial fetch of status counts only - job data is handled by useJobData hook
+  // Initial fetch of status counts and user plan - job data is handled by useJobData hook
   useEffect(() => {
     fetchStatusCounts();
+    
+    // Fetch user plan information
+    const fetchUserPlan = async () => {
+      try {
+        const planData = await getPlanCurrentLimits();
+        setUserPlan(planData);
+      } catch (error) {
+        console.error('Error fetching user plan:', error);
+        // Set to null on error, which will default to free plan behavior
+        setUserPlan(null);
+      }
+    };
+    
+    fetchUserPlan();
   }, []); // Empty dependency array for initial load only
 
   // Note: Removed auto-clear logic to allow users to see active filters even with no results
@@ -194,6 +210,7 @@ const DataGrid = () => {
             isExporting={isExporting}
             isDeletingAll={isDeletingAll}
             jobsCount={jobs.length}
+            userPlan={userPlan}
           />
         </div>
 
