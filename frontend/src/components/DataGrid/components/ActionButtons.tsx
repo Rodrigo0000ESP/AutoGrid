@@ -121,7 +121,7 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
         currentPlan={userPlan?.plan || 'Free'}
         onUpgrade={() => {
           console.log('Modal upgrade clicked');
-          window.location.href = '/plan-details';
+          window.location.href = '/plan_details';
         }}
       />
     </>
