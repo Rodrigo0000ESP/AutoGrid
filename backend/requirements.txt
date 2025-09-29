@@ -6,3 +6,4 @@ passlib[bcrypt]
 psycopg2-binary
 python-dotenv
 openpyxl>=3.0.0
+boto3
