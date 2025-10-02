@@ -1,15 +1,21 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Body
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
 from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
+import os
+from sqlalchemy.orm import Session
+from typing import List, Optional, Dict, Any, TypeVar
+from pydantic import BaseModel
+from pagination import PaginatedResult, PaginationParams
 from BaseRepository import SessionLocal
 from job_service import JobService
-from models import JobType, JobStatus
+from models import JobType, JobStatus, User, ExtractionCounter, Job
+from plan_features import PlanType
+from plan_middleware import PlanChecker
 from jwt_utils import get_current_user
 from html_parser import HtmlParser
 from llm_job_parser import LlmJobParser
-
+from job_export_service import JobExportService
+from plan_middleware import PlanChecker
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 def get_db():
@@ -55,9 +61,14 @@ class JobResponse(JobBase):
     user_id: int
     date_added: datetime
     date_modified: datetime
+    status: str  # This will be the string value of the status enum
+    job_type: Optional[str] = None  # Add this to match the base model
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: v.isoformat() if v else None
+        }
 
 class JobStatusCount(BaseModel):
     Saved: int = 0
@@ -74,6 +85,23 @@ def create_job(job: JobCreate, current_user: dict = Depends(get_current_user), d
     """
     Create a new job entry
     """
+    # Check job storage limits before proceeding
+    user = db.query(User).filter(User.id == current_user["id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get user's plan details
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+    
+    # Check if user has reached job storage limit
+    job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+    max_storage = plan_details.get('max_store_capacity', 10)
+    if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
+        )
+    
     service = JobService()
     
     try:
@@ -99,12 +127,39 @@ def job_creation_workflow(
     1. Pre-parses HTML to clean it.
     2. Uses LLM to extract structured data.
     3. Saves the job offer to the database.
+    4. Increments the extraction counter.
     """
     html_parser = HtmlParser()
     llm_parser = LlmJobParser()
     service = JobService()
 
     try:
+        # 0. Check extraction limits before proceeding
+        # Get the full user model instance
+        user = db.query(User).filter(User.id == current_user["id"]).first()
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+        # Get user's plan details
+        plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+        
+        # Check if user has reached extraction limit
+        counter = ExtractionCounter.get_or_create_counter(db, current_user["id"])
+        if counter.count >= plan_details.get('max_extractions', 10) and plan_details.get('max_extractions', 10)>0:  # Default to 10 if not set
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You have reached your monthly extraction limit. Please upgrade your plan to continue."
+            )
+        
+        # Check if user has reached job storage limit
+        job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+        max_storage = plan_details.get('max_store_capacity', 10)
+        if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
+            )
+
         # 1. Pre-parse HTML
         pre_parsed_data = html_parser.preparse_html(request_data.html_content, request_data.url)
         if not pre_parsed_data or not pre_parsed_data.get("content"):
@@ -115,7 +170,8 @@ def job_creation_workflow(
             parsed_text=pre_parsed_data["content"],
             url=request_data.url,
             title=request_data.title,
-            portal=pre_parsed_data.get("portal")
+            portal=pre_parsed_data.get("portal"),
+            structured_data=pre_parsed_data.get("structured_data")
         )
 
         # 3. Save the job offer
@@ -124,33 +180,132 @@ def job_creation_workflow(
             user_id=current_user["id"],
             job_data=extracted_data
         )
+        
+        # 4. Increment extraction counter
+        counter.increment(db)
+        
         return created_job
 
+    except HTTPException:
+        raise
     except Exception as e:
         import logging
         logging.error(f"Error in job creation workflow: {e}")
         raise HTTPException(status_code=500, detail="An error occurred during the job creation workflow.")
 
-@router.get("/", response_model=List[JobResponse])
-def get_jobs(
-    skip: int = 0, 
-    limit: int = 100,
-    status: Optional[str] = None,
+@router.get("/all", response_model=List[JobResponse])
+def get_all_jobs(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
-    Get all jobs for the current user, with optional filtering by status
+    Get all jobs for the current user (for testing purposes)
     """
     service = JobService()
+    return service.get_jobs_by_user(db, current_user["id"])
+
+@router.get("/")
+async def get_jobs(
+    request: Request,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    search_terms: str = Query(None, description="Search term"),
+    status: str = Query(None, description="Filter by status"),
+    job_type: str = Query(None, description="Filter by job type"),
+    is_remote: bool = Query(None, description="Filter by remote jobs"),
+    is_hybrid: bool = Query(None, description="Filter by hybrid jobs"),
+    min_salary: int = Query(None, ge=0, description="Filter by minimum salary"),
+    max_salary: int = Query(None, ge=0, description="Filter by maximum salary"),
+    experience_years: int = Query(None, ge=0, description="Filter by years of experience"),
+    company: str = Query(None, description="Filter by company name"),
+    location: str = Query(None, description="Filter by location"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Get paginated list of jobs with filtering and search capabilities
+    
+    - **search_terms**: Search in position, company, description, and location
+    - **status**: Filter by job status (saved, applied, interview, offer, rejected)
+    - **job_type**: Filter by job type (full_time, part_time, contract, internship, temporary)
+    - **is_remote**: Filter remote jobs
+    - **is_hybrid**: Filter hybrid jobs
+    - **min_salary**: Filter by minimum salary
+    - **max_salary**: Filter by maximum salary
+    - **experience_years**: Filter by years of experience
+    - **company**: Filter by company name
+    - **location**: Filter by location
+    """
+    job_service = JobService()
+    
+    # Build filters dictionary
+    filters = {
+        'user_id': current_user["id"],
+        'status': status,
+        'job_type': job_type,
+        'is_remote': is_remote,
+        'is_hybrid': is_hybrid,
+        'min_salary': min_salary,
+        'max_salary': max_salary,
+        'experience_years': experience_years,
+        'company': company,
+        'location': location
+    }
+    
+    # Remove None values
+    filters = {k: v for k, v in filters.items() if v is not None}
+    
+    # Get jobs with pagination, search, and filters
+    result = job_service.get_paginated_jobs(
+        db=db,
+        page=page,
+        page_size=page_size,
+        search_terms=search_terms,
+        **filters
+    )
+    
+    return result
+
+@router.get("/export/excel", tags=["jobs"])
+async def export_jobs_to_excel(
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Export all jobs to an Excel file.
+    
+    Only available for users with an Unlimited plan.
+    
+    Returns:
+        Excel file containing all jobs
+    """
+    # Check if user has unlimited plan
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, db.query(User).filter(User.id == current_user["id"]).first())
+    
+    if plan_name != PlanType.UNLIMITED.value:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Excel export is only available for Unlimited plan subscribers"
+        )
     
     try:
-        if status:
-            return service.get_jobs_by_status(db, current_user["id"], status, skip, limit)
+        export_service = JobExportService()
+        filepath = export_service.export_jobs(db, current_user["id"])
+        filename = os.path.basename(filepath)
         
-        return service.get_jobs_by_user(db, current_user["id"], skip, limit)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid status. Valid options are: {[s.value for s in JobStatus]}")
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error exporting jobs to Excel: {str(e)}"
+        )
 
 @router.get("/status-counts", response_model=JobStatusCount)
 def get_job_status_counts(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -211,6 +366,28 @@ def delete_job(job_id: int, current_user: dict = Depends(get_current_user), db: 
         raise HTTPException(status_code=404, detail="Job not found")
     
     return None
+
+@router.delete("/", response_model=dict)
+async def delete_all_user_jobs(
+    current_user: dict = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """
+    Delete all jobs for the current user
+    """
+    service = JobService()
+    try:
+        deleted_count = service.delete_all_user_jobs(db, current_user["id"])
+        return {
+            "status": "success",
+            "message": f"Successfully deleted {deleted_count} jobs",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An error occurred while deleting jobs: {str(e)}"
+        )
 
 @router.post("/preparse-job-offer", status_code=status.HTTP_200_OK)
 def preparse_job_offer(
@@ -326,6 +503,23 @@ def save_job_offer(
         "status": "Saved"  # Optional, defaults to "Saved"
     }
     """
+    # Check job storage limits before proceeding
+    user = db.query(User).filter(User.id == current_user["id"]).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    # Get user's plan details
+    plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, user)
+    
+    # Check if user has reached job storage limit
+    job_count = db.query(Job).filter(Job.user_id == current_user["id"]).count()
+    max_storage = plan_details.get('max_store_capacity', 10)
+    if job_count >= max_storage and max_storage > 0:  # Check storage limit if not unlimited (-1)
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"You have reached your job storage limit of {max_storage}. Please upgrade your plan to continue."
+        )
+    
     service = JobService()
     
     # Get the job data, using empty strings as defaults for required fields

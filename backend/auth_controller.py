@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from auth import AuthRepository
-from BaseRepository import SessionLocal
-from models import User, PasswordReset
-from email_service import send_password_reset_email
+from BaseRepository import SessionLocal, get_db
+from models import User, PasswordReset, EmailVerification
+from email_service import send_password_reset_email, send_email_verification
 import secrets
 import string   
 import os
@@ -17,12 +17,6 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), '.env'))
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 class RegisterRequest(BaseModel):
     username: str
@@ -30,7 +24,8 @@ class RegisterRequest(BaseModel):
     password: str
 
 class LoginRequest(BaseModel):
-    username: str
+    username: Optional[str] = None
+    email: Optional[str] = None
     password: str
 
 class ForgotPasswordRequest(BaseModel):
@@ -51,9 +46,13 @@ class AuthResponse(BaseModel):
     user: UserResponse
     token: str
 
-@router.post("/register", response_model=AuthResponse)
-def register(request: RegisterRequest, db: Session = Depends(get_db)):
+@router.post("/register")
+def register(request: RegisterRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     repo = AuthRepository()
+    # Validate password requirements
+    pwd_error = repo.validate_password_requirements(request.password)
+    if pwd_error:
+        raise HTTPException(status_code=400, detail=pwd_error)
     
     # Crear usuario con el nuevo método que verifica email y username
     user, error_message = repo.create_user(db, request.username, request.email, request.password)
@@ -61,10 +60,31 @@ def register(request: RegisterRequest, db: Session = Depends(get_db)):
     # Si hay un error, lanzar una excepción HTTP con el mensaje
     if error_message:
         raise HTTPException(status_code=400, detail=error_message)
-    
-    # Si todo está bien, generar token y devolver respuesta
-    token = create_access_token({"sub": user.username, "id": user.id})
-    return {"user": user, "token": token}
+
+    # Crear token de verificación de email (30 minutos)
+    verify_token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+    verification = EmailVerification(
+        user_id=user.id,
+        token=verify_token,
+        expires_at=datetime.utcnow() + timedelta(minutes=30)
+    )
+    db.add(verification)
+    db.commit()
+
+    # Enviar correo de verificación
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:4321")
+    background_tasks.add_task(
+        send_email_verification,
+        email=user.email,
+        username=user.username,
+        token=verify_token,
+        base_url=frontend_url
+    )
+
+    response = {"message": "Registration successful. Please check your email to verify your account."}
+    if os.getenv("ENVIRONMENT", "development") == "development":
+        response["debug_verify_token"] = verify_token
+    return response
 
 @router.get("/me", response_model=UserResponse)
 def get_me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -77,9 +97,16 @@ def get_me(current_user: dict = Depends(get_current_user), db: Session = Depends
 @router.post("/login", response_model=AuthResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     repo = AuthRepository()
-    user = repo.authenticate_user(db, request.username, request.password)
+    identifier = request.username or request.email
+    if not identifier:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email is required")
+    user = repo.authenticate_user(db, identifier, request.password)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    # Enforce email verification
+    verified = db.query(EmailVerification).filter(EmailVerification.user_id == user.id, EmailVerification.used == True).first()
+    if not verified:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Please verify your email before logging in.")
     token = create_access_token({"sub": user.username, "id": user.id})
     return {"user": user, "token": token}
 
@@ -99,12 +126,12 @@ async def forgot_password(request: ForgotPasswordRequest, background_tasks: Back
     reset_request = db.query(PasswordReset).filter(PasswordReset.user_id == user.id).first()
     if reset_request:
         reset_request.token = token
-        reset_request.expires_at = datetime.utcnow() + timedelta(hours=1)
+        reset_request.expires_at = datetime.utcnow() + timedelta(minutes=10)
     else:
         reset_request = PasswordReset(
             user_id=user.id,
             token=token,
-            expires_at=datetime.utcnow() + timedelta(hours=1)
+            expires_at=datetime.utcnow() + timedelta(minutes=10)
         )
         db.add(reset_request)
     
@@ -143,8 +170,11 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Update the password
+    # Update the password with validation
     repo = AuthRepository()
+    pwd_error = repo.validate_password_requirements(request.new_password)
+    if pwd_error:
+        raise HTTPException(status_code=400, detail=pwd_error)
     hashed_password = repo.get_password_hash(request.new_password)
     user.hashed_password = hashed_password
     
@@ -153,4 +183,18 @@ def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db))
     db.commit()
     
     return {"message": "Password updated successfully"}
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    verification = db.query(EmailVerification).filter(EmailVerification.token == token).first()
+    if not verification:
+        raise HTTPException(status_code=400, detail="Invalid verification token")
+    if verification.used:
+        return {"message": "Email already verified"}
+    if verification.expires_at < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Verification token has expired")
+    verification.used = True
+    verification.verified_at = datetime.utcnow()
+    db.commit()
+    return {"message": "Email verified successfully. You can now sign in."}
 

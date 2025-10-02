@@ -1,0 +1,278 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// This component will be fully rendered on the client side---
+---
+
+<Layout title="My Plan | AutoGrid">
+  <div id="plan-details-content">
+    <div class="flex justify-center items-center h-64">
+      <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+    </div>
+  </div>
+
+  <script>
+    // Import services
+    (async () => {
+      const contentDiv = document.getElementById('plan-details-content');
+      if (!contentDiv) return;
+
+      try {
+        // Import services dynamically for client-side execution
+        const { isAuthenticated } = await import('../services/authService.js');
+        const { getPlanCurrentLimits } = await import('../services/subscriptionService.js');
+        
+        // Check authentication
+        if (!isAuthenticated()) {
+          sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
+          window.location.href = '/login';
+          return;
+        }
+
+        // Load plan data
+        const response = await getPlanCurrentLimits();
+        
+        if (response) {
+          renderPlanDetails(contentDiv, response);
+        } else {
+          throw new Error('Failed to load plan data');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        showError(contentDiv, err instanceof Error ? err.message : 'An error occurred');
+      }
+    })();
+
+    /**
+     * Display error message
+     */
+    function showError(container: HTMLElement, message: string) {
+      container.innerHTML = `
+        <div class="bg-red-50 border-l-4 border-red-400 p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <p class="text-sm text-red-700">${message}</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Calculate usage percentage
+     */
+    function getUsagePercentage(used: number, total: number): number {
+      if (total <= 0) return 0;
+      return Math.min(Math.round((used / total) * 100), 100);
+    }
+
+    // Import the subscription service and its types
+    import type { PlanUsageResponse } from '../services/subscriptionService';
+    const subscriptionService = await import('../services/subscriptionService.js');
+
+    /**
+     * Render plan details
+     */
+    function renderPlanDetails(container: HTMLElement, planData: PlanUsageResponse) {
+      // Transform the features from Record<string, boolean> to string[]
+      const features = planData.features ? Object.entries(planData.features)
+        .filter(([_, enabled]) => enabled)
+        .map(([feature]) => feature) : [];
+      
+      // Use the plan data with default values
+      const { 
+        plan = 'free',
+        usage = {
+          extractions: { current: 0, limit: 0, remaining: 0 },
+          storage: { current: 0, limit: 0, remaining: 0 }
+        },
+        limits = { 
+          max_extractions: 0, 
+          max_store_capacity: 0,
+          allow_multiple_extractions: false,
+          allow_unlimited_extractions: false
+        },
+        is_trial = false,
+        subscription = { status: 'inactive', current_period_end: null }
+      } = planData;
+      
+      // Get subscription info
+      const { status, current_period_end } = subscription;
+      
+      // Get usage and limits from the API response
+      const { max_extractions, max_store_capacity } = limits;
+      const { current: used_jobs } = usage.storage;
+      
+      // Helper function to format limit values (handle infinite/zero cases)
+      const formatLimit = (value: number) => {
+        if (value === -1) return '∞'; // Infinite
+        if (value === 0) return '∞'; // Treat 0 as infinite
+        return value.toString();
+      };
+      
+      // Helper function to calculate usage percentage
+      const getUsagePercentage = (used: number, total: number): number => {
+        if (total <= 0) return 100; // If unlimited, show 100% usage
+        return Math.min(Math.round((used / total) * 100), 100);
+      };
+
+      // Helper function to format date
+      function formatDate(dateString: string): string {
+        if (!dateString) return 'N/A';
+        try {
+          return new Date(dateString).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          });
+        } catch (e) {
+          return 'Invalid date';
+        }
+      };
+
+      // Render the plan details
+      container.innerHTML = `
+        <main class="container mx-auto px-4 py-8">
+          <h1 class="text-3xl font-bold text-gray-900 mb-8">Your Subscription</h1>
+          
+          <div class="space-y-8">
+            <!-- Plan Summary -->
+            <div class="bg-white shadow rounded-lg p-6">
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                <div>
+                  <div class="flex items-center">
+                    <h2 class="text-2xl font-bold text-gray-900">
+                      ${plan.charAt(0).toUpperCase() + plan.slice(1)} Plan
+                    </h2>
+                    <span class="ml-3 px-3 py-1 rounded-full text-xs font-medium ${
+                      status === 'active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                    }">
+                      ${status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Inactive'}
+                    </span>
+                    ${is_trial ? `
+                      <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        Trial
+                      </span>
+                    ` : ''}
+                  </div>
+                  ${current_period_end ? `
+                    <p class="mt-2 text-gray-600">
+                      Next billing date: ${formatDate(current_period_end)}
+                    </p>
+                  ` : ''}
+                </div>
+                ${plan && plan.toLowerCase() === 'free' ? `
+                  <a 
+                    href="/pricing" 
+                    class="mt-4 md:mt-0 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Upgrade Plan
+                  </a>
+                ` : `
+                  <button 
+                    id="manage-subscription-btn"
+                    class="mt-4 md:mt-0 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                  >
+                    Manage Subscription
+                  </button>
+                `}
+              </div>
+            </div>
+
+            <!-- Usage Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- Extractions Usage -->
+              <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Extractions</h3>
+                <div class="space-y-4">
+                  <div>
+                    <div class="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                      <span>Used this month</span>
+                      <span>
+                        ${usage.extractions.current} / ${formatLimit(usage.extractions.limit)}
+                      </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        class="bg-indigo-600 h-2.5 rounded-full" 
+                        style="width: ${getUsagePercentage(usage.extractions.current, usage.extractions.limit <= 0 ? 100 : usage.extractions.limit)}%"
+                      ></div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">
+                      ${usage.extractions.limit <= 0 ? 'Unlimited extractions' : `${usage.extractions.current} of ${usage.extractions.limit} extractions used`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Job Storage -->
+              <div class="bg-white shadow rounded-lg p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Job Storage</h3>
+                <div class="space-y-4">
+                  <div>
+                    <div class="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                      <span>Stored Jobs</span>
+                      <span>
+                        ${usage.storage.current} / ${formatLimit(usage.storage.limit)}
+                      </span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                      <div 
+                        class="bg-green-600 h-2.5 rounded-full" 
+                        style="width: ${getUsagePercentage(usage.storage.current, usage.storage.limit <= 0 ? 100 : usage.storage.limit)}%"
+                      ></div>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">
+                      ${usage.storage.limit <= 0 ? 'Unlimited storage' : `${usage.storage.current} of ${usage.storage.limit} jobs stored`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+      `;
+
+      // After rendering, wire Manage Subscription button if present
+      try {
+        const btn = document.getElementById('manage-subscription-btn') as HTMLButtonElement | null;
+        if (btn) {
+          import('../services/subscriptionService.js')
+            .then(({ openBillingPortal }) => {
+              btn.addEventListener('click', async () => {
+                const original = btn.innerHTML;
+                btn.disabled = true;
+                btn.innerHTML = '<span class="loading loading-spinner loading-sm"></span> Opening...';
+                try {
+                  const { url } = await openBillingPortal();
+                  if (!url) throw new Error('No portal URL');
+                  window.location.href = url;
+                } catch (e: unknown) {
+                  console.error('Failed to open Billing Portal', e);
+                  const msg = (e instanceof Error) ? e.message : 'Could not open Billing Portal. Please try again.';
+                  alert(msg);
+                  if (msg.toLowerCase().includes('no tiene una suscripción') || msg.toLowerCase().includes('no tiene un customer')) {
+                    window.location.href = '/pricing';
+                    return;
+                  }
+                } finally {
+                  btn.disabled = false;
+                  btn.innerHTML = original;
+                }
+              });
+            })
+            .catch((e) => {
+              console.error('Failed to load subscriptionService for portal', e);
+            });
+        }
+      } catch (e) {
+        console.error('Error wiring Manage Subscription button', e);
+      }
+    }
+  </script>
+</Layout>

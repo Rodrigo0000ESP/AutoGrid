@@ -9,8 +9,23 @@
     "astro": "astro"
   },
   "dependencies": {
-    "@tailwindcss/vite": "^4.1.11",
+    "@astrojs/node": "^9.4.2",
+    "@astrojs/react": "^4.3.0",
+    "@headlessui/react": "^2.2.7",
+    "@heroicons/react": "^2.2.0",
+    "@stripe/stripe-js": "^7.8.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/lodash": "^4.17.20",
     "astro": "^5.12.8",
-    "tailwindcss": "^4.1.11"
+    "axios": "^1.11.0",
+    "jose": "^6.0.12",
+    "lodash": "^4.17.21",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "tailwindcss": "^4.1.13"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7"
   }
 }

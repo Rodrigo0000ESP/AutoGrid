@@ -226,7 +226,7 @@ class HtmlParser:
             print(f"Error extracting domain from {url}: {str(e)}")
             return ""
     
-    def _parse_known_portal(self, soup: BeautifulSoup, portal: str) -> Dict[str, str]:
+    def _parse_known_portal(self, soup: BeautifulSoup, portal: str) -> Dict[str, any]:
         """Extract job container and key elements for known portals"""
         result = {
             "portal": portal, 

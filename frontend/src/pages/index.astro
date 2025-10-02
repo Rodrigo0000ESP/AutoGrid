@@ -1,10 +1,9 @@
 ---
-import Header from "../components/header.astro";
 import HeroSection from "../components/herosection.astro";
 import Features from "../components/Features.astro";
 import CTA from "../components/CTA.astro";
-import Footer from "../components/Footer.astro";
 import "../styles/global.css";
+import Layout from "../layouts/Layout.astro";
 ---
 
 <html lang="en" class="scroll-smooth">
@@ -18,12 +17,12 @@ import "../styles/global.css";
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   </head>
   <body class="font-sans antialiased text-gray-900 bg-white">
-    <Header />
+    <Layout>
     <main>
       <HeroSection />
       <Features />
       <CTA />
     </main>
-    <Footer />
+    </Layout>
   </body>
 </html>

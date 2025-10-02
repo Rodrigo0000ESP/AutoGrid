@@ -1,0 +1,73 @@
+---
+import Footer from '../components/Footer.astro';
+import '../styles/global.css';
+import Header from '../components/header.astro';
+import AuthHeader from '../components/header_auth.astro';
+
+const { title = 'AutoGrid', description = 'Save job postings with one click and organize your job search.' } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body class="font-sans antialiased text-gray-900 bg-white">
+    <div id="header-authenticated" class="hidden">
+      <AuthHeader />
+    </div>
+    <div id="header-guest">
+      <Header />
+    </div>
+
+    <main>
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>
+
+<script>
+  import { setupAuthListener, checkAuthentication } from '../utils/authListener';
+  import { isAuthenticated } from '../services/authService';
+
+  // Setup the auth listener for page navigation and storage events
+  setupAuthListener();
+
+  // Initial header setup
+  const updateHeaders = () => {
+    const authHeader = document.getElementById('header-authenticated');
+    const guestHeader = document.getElementById('header-guest');
+    const isAuth = isAuthenticated();
+
+    if (authHeader && guestHeader) {
+      authHeader.classList.toggle('hidden', !isAuth);
+      guestHeader.classList.toggle('hidden', isAuth);
+    }
+  };
+
+  // Initial setup
+  updateHeaders();
+
+  // Update headers on auth state changes
+  window.addEventListener('storage', (event) => {
+    if (event.key === 'autogrid_token') {
+      updateHeaders();
+    }
+  });
+
+  // Check auth status on page load
+  checkAuthentication();
+</script>
+
+<style>
+  .hidden {
+    display: none;
+  }
+</style>

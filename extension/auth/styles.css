@@ -49,7 +49,7 @@ body > .container {
   z-index: 1000;
   min-width: 200px;
   text-align: center;
-  display: none; /* Hidden by default */
+  display: block; /* Visible by default, controlled by opacity */
 }
 
 .message.success {
@@ -65,7 +65,7 @@ body > .container {
 }
 
 .message.info {
-  background-color: #e0f2fe;
+  background-color: #f0f9ff;
   color: #0369a1;
   border-left: 4px solid #0ea5e9;
 }
@@ -174,12 +174,6 @@ button:active, button[type="submit"]:active {
   text-align: center;
 }
 
-.message {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  text-align: center;
-  display: none; /* Hidden by default */
-}
 .error {
   color: #dc2626;
 }

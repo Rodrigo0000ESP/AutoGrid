@@ -1,0 +1,44 @@
+---
+// src/pages/logout.astro
+---
+
+<script>
+  // Import the auth service
+  import { removeAuthToken } from '../services/authService';
+
+  // Get return URL from query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const returnUrl = urlParams.get('returnUrl');
+  const redirectUrl = returnUrl ? `/login?returnUrl=${encodeURIComponent(returnUrl)}` : '/';
+
+  // Clear all auth data
+  removeAuthToken();
+  
+  // Clear any other user-related data
+  localStorage.removeItem('user_data');
+  
+  // Clear the remember me cookie if it exists
+  document.cookie = 'autogrid_token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+  
+  // Redirect to login or home page
+  window.location.href = redirectUrl;
+</script>
+
+<div class="min-h-screen flex items-center justify-center bg-gray-50">
+  <div class="text-center">
+    <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+    <p class="text-gray-600">Cerrando sesión...</p>
+  </div>
+</div>
+
+
+<style>
+  /* Simple loading animation */
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  .animate-spin {
+    animation: spin 1s linear infinite;
+  }
+</style>

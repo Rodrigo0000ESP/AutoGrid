@@ -1,8 +1,12 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any, TypeVar
 from BaseRepository import BaseRepository
-from models import Job, JobStatus, JobType
+from models import Job, JobStatus, JobType, UserSubscription
+from pagination import PaginatedResult
 from datetime import datetime
+
+# Define a type variable for generic type hints
+T = TypeVar('T', bound=Job)
 
 class JobService:
     def __init__(self):
@@ -11,6 +15,14 @@ class JobService:
     def create_job(self, db: Session, user_id: int, job_data: dict) -> Job:
         """
         Create a new job entry for a user
+        
+        Args:
+            db: Database session
+            user_id: ID of the user creating the job
+            job_data: Dictionary containing job details
+            
+        Returns:
+            Job: The created job object
         """
         # Convert string to enum for job_type if provided
         job_type_enum = None
@@ -22,25 +34,33 @@ class JobService:
         if job_data.get("status"):
             status_enum = JobStatus(job_data["status"])
         
-        # Create job object
-        job = Job(
-            user_id=user_id,
-            position=job_data.get("position", ""),
-            company=job_data.get("company", ""),
-            location=job_data.get("location"),
-            salary=job_data.get("salary"),
-            job_type=job_type_enum,
-            status=status_enum,
-            link=job_data.get("link"),
-            description=job_data.get("description"),
-            notes=job_data.get("notes")
-        )
-        
-        # Add to database
-        db.add(job)
-        db.commit()
-        db.refresh(job)
-        return job
+        try:
+            # Create job object
+            job = Job(
+                user_id=user_id,
+                position=job_data.get("position", ""),
+                company=job_data.get("company", ""),
+                location=job_data.get("location"),
+                salary=job_data.get("salary"),
+                job_type=job_type_enum,
+                status=status_enum,
+                link=job_data.get("link"),
+                description=job_data.get("description"),
+                notes=job_data.get("notes")
+            )
+            
+            # Add to database
+            db.add(job)
+            db.commit()
+            db.refresh(job)
+            return job
+            
+        except Exception as e:
+            db.rollback()
+            raise e
+        except Exception as e:
+            db.rollback()
+            raise e
     
     def get_jobs_by_user(self, db: Session, user_id: int, skip: int = 0, limit: int = 100) -> List[Job]:
         """
@@ -95,6 +115,29 @@ class JobService:
         db.delete(job)
         db.commit()
         return True
+        
+    def delete_all_user_jobs(self, db: Session, user_id: int) -> int:
+        """
+        Delete all jobs belonging to a specific user
+        
+        Args:
+            db: Database session
+            user_id: ID of the user whose jobs should be deleted
+            
+        Returns:
+            int: Number of jobs deleted
+        """
+        try:
+            # Get the count before deletion for the return value
+            count = db.query(Job).filter(Job.user_id == user_id).count()
+            
+            # Delete all jobs for the user
+            db.query(Job).filter(Job.user_id == user_id).delete(synchronize_session=False)
+            db.commit()
+            return count
+        except Exception as e:
+            db.rollback()
+            raise e
     
     def get_jobs_by_status(self, db: Session, user_id: int, status: str, 
                           skip: int = 0, limit: int = 100) -> List[Job]:
@@ -110,6 +153,9 @@ class JobService:
     def count_jobs_by_status(self, db: Session, user_id: int) -> Dict[str, int]:
         """
         Count jobs by status for a specific user
+        
+        Returns:
+            Dict with status counts matching the JobStatusCount model
         """
         result = {}
         for status in JobStatus:
@@ -117,11 +163,77 @@ class JobService:
                 Job.user_id == user_id,
                 Job.status == status
             ).count()
-            result[status.value] = count
+            # Use status.name to get the enum name (e.g., 'SAVED') and capitalize it ('Saved')
+            result[status.name.capitalize()] = count
         
         # Add total count
         result["total"] = db.query(Job).filter(Job.user_id == user_id).count()
         return result
+        
+    def get_paginated_jobs(
+        self,
+        db: Session,
+        page: int = 1,
+        page_size: int = 20,
+        search_terms: str = None,
+        search_fields: List[str] = None,
+        **filters: Any
+    ) -> Dict[str, Any]:
+        """
+        Get paginated jobs with optional search and filtering using BaseRepository
+        
+        Args:
+            db: Database session
+            page: Page number (1-based)
+            page_size: Number of items per page
+            search_terms: Search string to filter jobs
+            search_fields: List of field names to search in
+            **filters: Additional filters to apply (field=value)
+            
+        Returns:
+            Dictionary containing jobs and pagination metadata
+        """
+        # Convert filter values from string to appropriate types
+        processed_filters = {}
+        for key, value in filters.items():
+            if value is not None:
+                # Handle status filter
+                if key == 'status' and isinstance(value, str):
+                    try:
+                        processed_filters[key] = JobStatus[value.upper()]
+                    except KeyError:
+                        pass  # Invalid status, skip this filter
+                # Handle job_type filter
+                elif key == 'job_type' and isinstance(value, str):
+                    try:
+                        processed_filters[key] = JobType[value.upper()]
+                    except KeyError:
+                        pass  # Invalid job type, skip this filter
+                # Handle boolean filters
+                elif key in ['is_remote', 'is_hybrid']:
+                    if isinstance(value, str):
+                        processed_filters[key] = value.lower() in ('true', '1', 't')
+                    else:
+                        processed_filters[key] = bool(value)
+                # Handle numeric filters
+                elif key in ['min_salary', 'max_salary', 'experience_years']:
+                    try:
+                        processed_filters[key] = int(value)
+                    except (ValueError, TypeError):
+                        pass  # Invalid number, skip this filter
+                else:
+                    processed_filters[key] = value
+        
+        # Use BaseRepository's get_paginated_from_db method
+        return self.repository.get_paginated_from_db(
+            db=db,
+            page=page,
+            page_size=page_size,
+            search_terms=search_terms,
+            search_fields=search_fields or ["position", "company", "description", "location"],
+            order_by=Job.date_modified.desc(),
+            **processed_filters
+        )
     
     def save_job_offer(self, db: Session, user_id: int, title: str, url: str, html_content: str = None) -> Job:
         """

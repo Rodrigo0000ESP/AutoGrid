@@ -1,0 +1,23 @@
+---
+// This is a dynamic route with server-side rendering
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import JobDetails from '../../components/jobs/JobDetails';
+
+// Get the job ID from the URL
+const { id } = Astro.params;
+
+// Required for dynamic routes
+export function getStaticPaths() {
+  // Return empty array for SSR
+  return [];
+}
+---
+
+<Layout title="Job Details">
+  <JobDetails 
+    client:load
+    jobId={id || ''}
+  />
+</Layout>
