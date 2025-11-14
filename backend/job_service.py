@@ -206,7 +206,9 @@ class JobService:
                 # Handle job_type filter
                 elif key == 'job_type' and isinstance(value, str):
                     try:
-                        processed_filters[key] = JobType[value.upper()]
+                        # Convert "Part-Time" to "PART_TIME" for enum lookup
+                        enum_key = value.upper().replace('-', '_')
+                        processed_filters[key] = JobType[enum_key]
                     except KeyError:
                         pass  # Invalid job type, skip this filter
                 # Handle boolean filters

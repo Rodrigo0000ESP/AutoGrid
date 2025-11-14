@@ -49,11 +49,13 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="">All Types</option>
-          <option value="Full-time">Full-time</option>
-          <option value="Part-time">Part-time</option>
+          <option value="Full-Time">Full-Time</option>
+          <option value="Part-Time">Part-Time</option>
           <option value="Contract">Contract</option>
+          <option value="Freelance">Freelance</option>
           <option value="Internship">Internship</option>
-          <option value="Remote">Remote</option>
+          <option value="Temporary">Temporary</option>
+          <option value="Other">Other</option>
         </select>
       </div>
     </div>

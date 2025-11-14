@@ -1,0 +1,91 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const title = "Page Not Found - AutoGrid";
+const description = "The page you're looking for doesn't exist";
+---
+
+<Layout {title} {description}>
+  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div class="max-w-md w-full">
+      <!-- Card Container -->
+      <div class="bg-white rounded-xl shadow-lg p-8 text-center border border-[var(--color-border)]">
+        <!-- 404 Icon -->
+        <div class="mb-6">
+          <div class="inline-flex items-center justify-center w-20 h-20 bg-[#e6f2ff] rounded-full">
+            <svg class="w-10 h-10 text-[var(--color-primary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+
+        <!-- Error Message -->
+        <h1 class="text-7xl font-bold text-[var(--color-primary)] mb-3">404</h1>
+        <h2 class="text-2xl font-bold text-[var(--color-text-primary)] mb-3">Page Not Found</h2>
+        <p class="text-[var(--color-text-secondary)] mb-8 leading-relaxed">
+          The page you're looking for doesn't exist or has been moved.
+        </p>
+
+        <!-- Redirect Message -->
+        <div class="bg-[#e6f2ff] rounded-lg p-5 mb-6 border border-[#b3d9ff]">
+          <p class="text-[var(--color-text-secondary)] mb-3 text-sm">
+            Redirecting to dashboard in <span id="countdown" class="font-bold text-[var(--color-primary)] text-lg">3</span> seconds...
+          </p>
+          <div class="w-full bg-[#cce5ff] rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-[var(--color-primary)] h-2 rounded-full transition-all duration-1000" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Manual Navigation -->
+        <div class="space-y-3">
+          <a 
+            href="/dashboard" 
+            class="block w-full bg-[var(--color-primary)] text-white px-6 py-3 rounded-lg font-medium hover:bg-[var(--color-secondary)] hover:shadow-lg transition-all duration-200"
+          >
+            Go to Dashboard Now
+          </a>
+          <a 
+            href="/" 
+            class="block w-full bg-white text-[var(--color-text-primary)] px-6 py-3 rounded-lg font-medium border border-[var(--color-border)] hover:bg-gray-50 hover:border-gray-400 transition-colors"
+          >
+            Go to Home
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  // Countdown and redirect logic
+  let countdown = 3;
+  const countdownElement = document.getElementById('countdown');
+  const progressBar = document.getElementById('progress-bar');
+  
+  // Update progress bar immediately
+  if (progressBar) {
+    progressBar.style.width = '0%';
+  }
+  
+  const interval = setInterval(() => {
+    countdown--;
+    if (countdownElement) {
+      countdownElement.textContent = countdown.toString();
+    }
+    if (progressBar) {
+      progressBar.style.width = `${((3 - countdown) / 3) * 100}%`;
+    }
+    
+    if (countdown <= 0) {
+      clearInterval(interval);
+      window.location.href = '/dashboard';
+    }
+  }, 1000);
+  
+  // Start progress animation
+  setTimeout(() => {
+    if (progressBar) {
+      progressBar.style.width = '33.33%';
+    }
+  }, 50);
+</script>
