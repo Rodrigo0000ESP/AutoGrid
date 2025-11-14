@@ -96,7 +96,17 @@ class LlmJobParser:
             
             # Parse the JSON response
             try:
-                parsed_data = json.loads(result)
+                # Clean markdown code blocks if present
+                cleaned_result = result.strip()
+                if cleaned_result.startswith("```json"):
+                    cleaned_result = cleaned_result[7:]
+                elif cleaned_result.startswith("```"):
+                    cleaned_result = cleaned_result[3:]
+                if cleaned_result.endswith("```"):
+                    cleaned_result = cleaned_result[:-3]
+                cleaned_result = cleaned_result.strip()
+                
+                parsed_data = json.loads(cleaned_result)
                 # Merge with prefilled data, giving preference to LLM results
                 result_data = self._normalize_job_data(parsed_data, url, title)
                 # For any fields that are empty in the result but present in prefilled_data, use prefilled_data
@@ -188,7 +198,7 @@ Important instructions:
 - Return all responses in English, even if the original content is in another language
 - The 'position' field MUST contain only the job title. Do NOT include work model details like 'remote' or 'hybrid'.
 - The 'job_type' field should include the work model (e.g., Remote, Hybrid, On-site) and the employment type (e.g., Full-time, Contract). Combine them if multiple are found.
-- You MUST provide a 2-3 sentence summary for the 'description' field. It cannot be empty.
+- You MUST provide a 3-4 sentence summary for the 'description' field. It cannot be empty.
 
 Return ONLY a valid JSON object with the following structure:
 {{

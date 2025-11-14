@@ -17,6 +17,9 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isGeneratingCV, setIsGeneratingCV] = useState(false);
+  const [showCVSuggestions, setShowCVSuggestions] = useState(false);
+  const [cvSuggestions, setCVSuggestions] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -55,6 +58,36 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
     } finally {
       setIsDeleting(false);
       setShowDeleteDialog(false);
+    }
+  };
+
+  const handleGenerateCV = async () => {
+    if (!job) return;
+    
+    setIsGeneratingCV(true);
+    setError(null);
+    
+    try {
+      const result = await dataShareService.generateCVFromJob(job.id);
+      
+      if (result.type === 'suggestion') {
+        // Show suggestions modal for PDF CVs
+        setCVSuggestions(result.data.suggestions);
+        setShowCVSuggestions(true);
+        setSuccessMessage('CV suggestions generated successfully!');
+      } else {
+        // DOCX file was downloaded
+        setSuccessMessage(`CV generated and downloaded: ${result.filename}`);
+      }
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (error: any) {
+      console.error('Error generating CV:', error);
+      const errorMessage = error?.message || 'Failed to generate CV. Please make sure you have uploaded your CV in CV Management.';
+      setError(errorMessage);
+    } finally {
+      setIsGeneratingCV(false);
     }
   };
 
@@ -212,7 +245,7 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 bg-gray-50">
-          <div className="flex">
+          <div className="flex gap-10">
             <div>
               <h3 className="text-lg leading-6 font-medium text-gray-900">
                 {getJobValue(job.position, 'Position')} at {getJobValue(job.company, 'Company')}
@@ -236,6 +269,30 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
                   View Job Posting
                 </a>
               )}
+              {/* <button
+                type="button"
+                className="inline-flex items-center px-3.5 py-1.5 text-sm font-medium text-purple-600 transition-colors bg-purple-50 border border-purple-200 rounded-md hover:bg-purple-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleGenerateCV}
+                disabled={isGeneratingCV}
+              >
+                {isGeneratingCV ? (
+                  <>
+                    <svg className="animate-spin -ml-0.5 mr-1.5 h-4 w-4 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 mr-1.5 -ml-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M9 2a2 2 0 00-2 2v8a2 2 0 002 2h6a2 2 0 002-2V6.414A2 2 0 0016.414 5L14 2.586A2 2 0 0012.586 2H9z" />
+                      <path d="M3 8a2 2 0 012-2v10h8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" />
+                    </svg>
+                    Generate CV
+                  </>
+                )}
+              </button> */}
               <button
                 type="button"
                 className="inline-flex items-center px-3.5 py-1.5 text-sm font-medium text-red-600 transition-colors bg-red-50 border border-red-200 rounded-md hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -457,6 +514,49 @@ export default function JobDetails({ jobId }: JobDetailsProps) {
           </Dialog.Panel>
         </div>
       </Dialog>
+      {/* <Dialog
+        open={showCVSuggestions}
+        onClose={() => setShowCVSuggestions(false)}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-3xl w-full rounded-lg bg-white p-6 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <Dialog.Title className="text-xl font-semibold text-gray-900">
+                CV Improvement Suggestions
+              </Dialog.Title>
+              <button
+                onClick={() => setShowCVSuggestions(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="prose prose-sm max-w-none">
+              <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-4">
+                <p className="text-sm text-purple-700">
+                  <strong>Note:</strong> These suggestions are based on your PDF CV. To generate a customized DOCX CV, please upload your CV in DOCX format.
+                </p>
+              </div>
+              <div className="whitespace-pre-wrap text-gray-700">
+                {cvSuggestions}
+              </div>
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-purple-600 border border-transparent rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+                onClick={() => setShowCVSuggestions(false)}
+              >
+                Close
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog> */}
     </div>
   );
 };

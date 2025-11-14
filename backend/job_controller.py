@@ -16,6 +16,10 @@ from html_parser import HtmlParser
 from llm_job_parser import LlmJobParser
 from job_export_service import JobExportService
 from plan_middleware import PlanChecker
+from models import CVJobAnalysis
+import logging
+import json
+
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 def get_db():
@@ -181,7 +185,23 @@ def job_creation_workflow(
             job_data=extracted_data
         )
         
-        # 4. Increment extraction counter
+        # 4. Save parsed HTML data for CV generation (Unlimited users only)
+        # try:
+        #     # Save complete parsed data including portal-specific info
+        #     parsed_data_json = json.dumps(pre_parsed_data)
+            
+        #     cv_analysis = CVJobAnalysis(
+        #         job_id=created_job.id,
+        #         user_id=current_user["id"],
+        #         raw_html=parsed_data_json, 
+        #         analysis_version="1.0"
+        #     )
+        #     db.add(cv_analysis)
+        #     db.commit()
+        # except Exception as e:
+        #     logging.warning(f"Failed to save CV analysis: {e}")
+        
+        # 5. Increment extraction counter
         counter.increment(db)
         
         return created_job
@@ -189,7 +209,6 @@ def job_creation_workflow(
     except HTTPException:
         raise
     except Exception as e:
-        import logging
         logging.error(f"Error in job creation workflow: {e}")
         raise HTTPException(status_code=500, detail="An error occurred during the job creation workflow.")
 

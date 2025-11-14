@@ -8,6 +8,7 @@ from job_controller import router as job_router
 from controllers.subscription_controller import router as subscription_router
 from support_controller import router as support_router
 from storage import file_upload_router
+from AiAgentToManageCVs import cv_router
 from BaseRepository import Base, engine
 
 # Cargar variables de entorno
@@ -42,6 +43,7 @@ app.include_router(job_router)
 app.include_router(subscription_router)
 app.include_router(support_router)
 app.include_router(file_upload_router)
+app.include_router(cv_router)
 
 # Ruta de verificación de salud
 @app.get("/health")

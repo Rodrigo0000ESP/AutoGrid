@@ -9,7 +9,7 @@ from dependencies import get_db, get_current_user
 from stripe_service import StripeService
 from BaseRepository import BaseRepository
 from plan_middleware import PlanChecker
-router = APIRouter(prefix="/subscription", tags=["subscription"])
+router = APIRouter(prefix="/api/subscription", tags=["subscription"])
 
 # Obtener la URL del frontend desde las variables de entorno
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')  # Valor por defecto para desarrollo

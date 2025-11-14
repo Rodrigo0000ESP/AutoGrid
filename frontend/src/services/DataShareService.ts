@@ -466,6 +466,57 @@ class DataShareService {
   }
 
   /**
+   * Generate customized CV from job offer using stored CV
+   * @param jobId Job ID to generate CV for
+   * @returns Promise with CV data (suggestions for PDF or file download for DOCX)
+   */
+  async generateCVFromJob(jobId: number): Promise<any> {
+    this.ensureAuthenticated();
+    const token = this.getAuthToken();
+
+    try {
+      const response = await this.fetchWithAuth(`${this.apiBaseUrl}/cv/generate-from-job`, {
+        method: 'POST',
+        headers: {
+          ...this.getHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ job_id: jobId }),
+      });
+
+      // Check if response is JSON (suggestions) or file (DOCX)
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType?.includes('application/json')) {
+        // PDF CV - return suggestions as JSON
+        const data = await response.json();
+        return data;
+      } else {
+        // DOCX CV - trigger download
+        const blob = await response.blob();
+        const contentDisposition = response.headers.get('content-disposition');
+        const filename = contentDisposition
+          ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+          : 'generated_cv.docx';
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        return { type: 'document', filename };
+      }
+    } catch (error) {
+      this.handleError('Error generating CV from job offer', error);
+      throw error;
+    }
+  }
+
+  /**
    * Logout the current user by clearing any cached data and optionally calling a logout endpoint
    */
   async logout(): Promise<void> {

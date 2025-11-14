@@ -179,7 +179,7 @@ async function getActiveTabHTML() {
             // Execute script to get HTML content
             chrome.scripting.executeScript({
                 target: { tabId: activeTab.id },
-                function: () => document.documentElement.outerHTML
+                function: getHTMLWithIframes
             }, (results) => {
                 if (chrome.runtime.lastError) {
                     reject(chrome.runtime.lastError.message);
@@ -195,6 +195,41 @@ async function getActiveTabHTML() {
             });
         });
     });
+}
+
+/**
+ * Extracts HTML including content from all iframes
+ * This function runs in the page context
+ */
+function getHTMLWithIframes() {
+    // Get main document HTML
+    let fullHTML = document.documentElement.outerHTML;
+    
+    // Find all iframes in the page
+    const iframes = document.querySelectorAll('iframe');
+    
+    if (iframes.length > 0) {
+        fullHTML += '\n\n<!-- ========== IFRAME CONTENTS ========== -->\n';
+        
+        iframes.forEach((iframe, index) => {
+            try {
+                // Try to access iframe content
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                
+                if (iframeDoc) {                    
+                    // Get iframe HTML
+                    const iframeHTML = iframeDoc.documentElement.outerHTML;
+                    fullHTML += `\n\n<!-- IFRAME ${index + 1} CONTENT -->\n`;
+                    fullHTML += iframeHTML;
+                } else {
+                    fullHTML += `\n<!-- IFRAME ${index + 1}: Cross-origin - cannot access -->\n`;
+                }
+            } catch (error) {
+                fullHTML += `\n<!-- IFRAME ${index + 1}: Error - ${error.message} -->\n`;
+            }
+        });
+    }
+    return fullHTML;
 }
 
 

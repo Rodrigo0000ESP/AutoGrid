@@ -91,13 +91,13 @@ export const TableView: React.FC<TableViewProps> = ({
                     <div className="text-xs text-gray-500 leading-none truncate">${job.salary}</div>
                   )}
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 max-w-[200px]">
                   <div className="text-gray-900 truncate text-xs leading-none">{job.company}</div>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 max-w-[200px]">
                   <div className="text-gray-500 truncate text-xs leading-none">{job.location || 'Remote'}</div>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 max-w-[200px]">
                   <select
                     value={job.status || 'Saved'}
                     onChange={(e) => onStatusChange(job.id, e.target.value as JobStatus)}
@@ -115,10 +115,10 @@ export const TableView: React.FC<TableViewProps> = ({
                     ))}
                   </select>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 max-w-[200px]">
                   <div className="text-gray-500 text-xs text-center leading-none">{job.job_type || 'Unknown'}</div>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-2 max-w-[200px]">
                   <div className="text-xs text-gray-600 line-clamp-3" title={job.description || ''}>
                     {job.description || <span className="text-gray-400">-</span>}
                   </div>

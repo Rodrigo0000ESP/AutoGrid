@@ -160,3 +160,28 @@ class Job(Base):
     
     # Relationship with user
     user = relationship("User", back_populates="jobs")
+    
+    # Relationship with CV analysis
+    cv_analysis = relationship("CVJobAnalysis", back_populates="job", uselist=False)
+
+
+class CVJobAnalysis(Base):
+    """AI-powered job analysis for CV generation (Premium feature)"""
+    __tablename__ = 'cv_job_analysis'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey('jobs.id'), nullable=False, unique=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    raw_html = Column(Text, nullable=True)
+    required_skills = Column(JSON, nullable=True)
+    preferred_skills = Column(JSON, nullable=True)
+    required_qualifications = Column(JSON, nullable=True)
+    preferred_qualifications = Column(JSON, nullable=True)
+    responsibilities = Column(JSON, nullable=True)
+    keywords = Column(JSON, nullable=True)
+    analyzed_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    analysis_version = Column(String, nullable=True)
+    
+    # Relationships
+    job = relationship("Job", back_populates="cv_analysis")
+    user = relationship("User") 

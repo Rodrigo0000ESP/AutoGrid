@@ -88,7 +88,7 @@ api.interceptors.response.use(
  */
 export const getPlans = async () => {
   try {
-    const response = await api.get('/subscription/plans');
+    const response = await api.get('/api/subscription/plans');
     return response.data?.data || [];
   } catch (error) {
     console.error('Error getting plans:', error);
@@ -106,7 +106,7 @@ export async function openBillingPortal(): Promise<{ url: string }> {
     if (envUrl) {
       return { url: envUrl };
     }
-    const response = await api.post('/subscription/portal', {});
+    const response = await api.post('/api/subscription/portal', {});
     const url = response?.data?.data?.url;
     if (!url) throw new Error('No portal URL returned');
     return { url };
@@ -126,7 +126,7 @@ export async function openBillingPortal(): Promise<{ url: string }> {
 export async function createCheckoutSession(priceId: string): Promise<{ url: string }> {
   console.log('Creating checkout session for price ID:', priceId);
   try {
-    const response = await api.post('/subscription/create-checkout-session', {
+    const response = await api.post('/api/subscription/create-checkout-session', {
       price_id: priceId
     }, {
       headers: {
@@ -174,7 +174,7 @@ export async function createCheckoutSession(priceId: string): Promise<{ url: str
  */
 export const getSubscriptionStatus = async () => {
   try {
-    const response = await api.get('/subscription/status');
+    const response = await api.get('/api/subscription/status');
     return response.data.data;
   } catch (error) {
     console.error('Error getting subscription status:', error);
@@ -223,7 +223,7 @@ export const getPlanCurrentLimits = async (): Promise<PlanUsageResponse | null> 
             throw new Error('No authentication token found');
         }
         
-        const response = await api.get('/subscription/plan_usage', {
+        const response = await api.get('/api/subscription/plan_usage', {
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
