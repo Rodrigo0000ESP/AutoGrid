@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "AutoGrid Job Saver",
   "version": "0.1.0",
-  "description": "Guarda ofertas de trabajo con un clic.",
+  "description": "Save Offers with just one click",
   "permissions": [
     "activeTab",
     "scripting",
