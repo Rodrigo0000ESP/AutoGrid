@@ -1,6 +1,6 @@
 // Email service for support contact and password reset
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 export interface SupportPayload {
   name: string;

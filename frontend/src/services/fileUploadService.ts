@@ -1,7 +1,7 @@
 import { getAuthToken, isAuthenticated } from './authService';
 
 // Get API base URL from environment variables or use default
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 export interface FileInfo {
   file_id: string;

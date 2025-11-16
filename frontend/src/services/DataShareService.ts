@@ -2,7 +2,7 @@ import type { Job } from '../types/job';
 import { getAuthToken, isAuthenticated } from './authService';
 
 // Get API base URL from environment variables or use default
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.PUBLIC_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 // Types
 type NotificationType = 'success' | 'error' | 'info';

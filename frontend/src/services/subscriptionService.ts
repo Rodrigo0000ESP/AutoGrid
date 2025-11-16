@@ -3,7 +3,7 @@ import { getAuthToken } from './authService';
 
 // Global axios configuration for CORS and credentials
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.PUBLIC_API_URL || 'http://localhost:8000',
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
