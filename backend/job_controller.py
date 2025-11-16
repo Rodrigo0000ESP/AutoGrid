@@ -293,18 +293,18 @@ async def export_jobs_to_excel(
     """
     Export all jobs to an Excel file.
     
-    Only available for users with an Unlimited plan.
+    Only available for users with Pro or Unlimited plan.
     
     Returns:
         Excel file containing all jobs
     """
-    # Check if user has unlimited plan
+    # Check if user has Pro or Unlimited plan
     plan_name, plan_details, is_trial = PlanChecker.get_user_plan(db, db.query(User).filter(User.id == current_user["id"]).first())
     
-    if plan_name != PlanType.UNLIMITED.value:
+    if plan_name not in [PlanType.PRO.value, PlanType.UNLIMITED.value]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Excel export is only available for Unlimited plan subscribers"
+            detail="Excel export is only available for Pro and Unlimited plan subscribers"
         )
     
     try:

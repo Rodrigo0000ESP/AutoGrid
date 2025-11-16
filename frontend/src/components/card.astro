@@ -14,7 +14,7 @@ const { title, price, features, popular = false, buttonClass = '' } = Astro.prop
 
 <div class={`relative flex flex-col p-6 bg-white shadow-lg rounded-lg border-2 ${popular ? 'border-blue-500 transform scale-105' : 'border-gray-200'} transition-all duration-300`}>
     {popular && (
-        <div class="absolute top-0 right-0 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
+        <div class="absolute -top-[2px] -right-[2px] bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
             POPULAR
         </div>
     )}

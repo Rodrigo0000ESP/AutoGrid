@@ -29,7 +29,8 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   
   const handleExportClick = () => {
-    if (userPlan?.plan !== 'unlimited') {
+    // Only restrict for free users - Pro and Unlimited can export
+    if (userPlan?.plan === 'free') {
       setShowPremiumModal(true);
       return;
     }
@@ -62,17 +63,17 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
           onClick={handleExportClick}
           disabled={isExporting}
           className={`px-3 py-1.5 sm:px-4 sm:py-2 text-white rounded-md flex items-center justify-center gap-1 sm:gap-2 w-full sm:w-auto text-sm sm:text-base transition-colors duration-200 disabled:opacity-70 disabled:cursor-not-allowed relative ${
-            userPlan?.plan === 'unlimited' 
-              ? 'bg-purple-600 hover:bg-purple-700' 
-              : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 border-2 shadow-lg'
+            userPlan?.plan === 'free' 
+              ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 border-2 shadow-lg'
+              : 'bg-purple-600 hover:bg-purple-700'
           }`}
-          style={userPlan?.plan !== 'unlimited' ? {
+          style={userPlan?.plan === 'free' ? {
             borderImage: 'linear-gradient(45deg, #fbbf24, #f59e0b) 1',
             borderStyle: 'solid'
           } : undefined}
         >
-          {/* Premium crown badge - only for non-unlimited users */}
-          {userPlan?.plan !== 'unlimited' && (
+          {/* Premium crown badge - only for free users */}
+          {userPlan?.plan === 'free' && (
             <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full p-1 shadow-md">
               <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M5 16L3 6l5.5 4L12 4l3.5 6L21 6l-2 10H5zm2.7-2h8.6l.9-4.4L14 12l-2-3.4L10 12l-3.2-2.4L7.7 14z"/>

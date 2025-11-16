@@ -50,17 +50,17 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
 
         {/* Content */}
         <div className="text-center">
-          <h3 className="text-2xl font-bold text-gray-900 mb-3">Unlimited Feature Required</h3>
+          <h3 className="text-2xl font-bold text-gray-900 mb-3">Premium Feature Required</h3>
           <p className="text-gray-600 mb-2">
-            <strong>{feature}</strong> is exclusively available with our <span className="text-amber-600 font-semibold">Unlimited Plan</span>.
+            <strong>{feature}</strong> is exclusively available with our <span className="text-amber-600 font-semibold">Pro or Unlimited Plans</span>.
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            You're currently on the <strong className="text-purple-600">{currentPlan}</strong> plan. Upgrade to Unlimited to access this feature!
+            You're currently on the <strong className="text-purple-600">{currentPlan}</strong> plan. Upgrade to Pro or Unlimited to access this feature!
           </p>
 
           {/* Benefits list */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h4 className="font-semibold text-gray-900 mb-3 text-center">With Unlimited Plan you get:</h4>
+            <h4 className="font-semibold text-gray-900 mb-3 text-center">With Pro or Unlimited Plan you get:</h4>
             <div className="grid grid-cols-1 gap-2">
               <div className="flex items-center bg-white p-2 rounded border border-gray-100">
                 <svg className="w-5 h-5 text-amber-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,7 +107,7 @@ export const PremiumModal: React.FC<PremiumModalProps> = ({
               onClick={handleUpgrade}
               className="flex-1 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white rounded-md transition-colors font-medium shadow-md"
             >
-              Upgrade to Unlimited
+              Upgrade Now
             </button>
           </div>
         </div>
