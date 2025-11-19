@@ -20,7 +20,10 @@ app = FastAPI()
 # Lista de orígenes permitidos
 allowed_origins = [
     "http://localhost:4321",  # Tu frontend local
-    "https://autogrid.net",   # Tu dominio de producción
+    "http://autogrid.net",    # Tu dominio HTTP
+    "http://www.autogrid.net", # Tu dominio HTTP con www
+    "https://autogrid.net",   # Tu dominio HTTPS
+    "https://www.autogrid.net", # Tu dominio HTTPS con www
     "chrome-extension://gmfhflhogdfhgegedmffabnejkcapcbj"
 ]
 

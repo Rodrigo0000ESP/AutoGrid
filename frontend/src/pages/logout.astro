@@ -14,6 +14,9 @@
   // Clear all auth data
   removeAuthToken();
   
+  localStorage.removeItem('autogrid_consent_accepted');
+  localStorage.removeItem('autogrid_consent_date');
+  
   // Clear any other user-related data
   localStorage.removeItem('user_data');
   

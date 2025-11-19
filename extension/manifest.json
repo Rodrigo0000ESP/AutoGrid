@@ -9,9 +9,9 @@
     "storage"
   ],
   "host_permissions": [
-    "*://*.linkedin.com/*",
-    "http://localhost:8000/*",
-    "https://your-api.com/*"
+    "https://autogrid.net/*",
+    "https://autogrid.net/api/*",
+    "http://autogrid.net/*"
   ],
   "action": {
     "default_popup": "home/home.html",

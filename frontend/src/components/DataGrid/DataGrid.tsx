@@ -18,8 +18,26 @@ import {
 type JobStatus = Job['status'];
 
 const DataGrid = () => {
+  // Auto-detect mobile and set grid view by default on mobile
+  const [isMobile, setIsMobile] = useState(false);
   const [mode, setMode] = useState<'table' | 'grid'>('table');
   const [userPlan, setUserPlan] = useState<PlanUsageResponse | null>(null);
+  
+  // Detect mobile on mount and window resize
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      // Auto-switch to grid view on mobile
+      if (mobile && mode === 'table') {
+        setMode('grid');
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Custom hooks for data management
   const {
@@ -180,14 +198,14 @@ const DataGrid = () => {
   }
 
   return (
-    <div id="main-content" className="w-full px-20 sm:px-2 md:px-4 space-y-6 sm:space-y-6 overflow-x-hidden mb-6">
+    <div id="main-content" className="w-full space-y-6 sm:space-y-6 overflow-x-hidden mb-6">
       <AddJobModal 
         isOpen={isAddJobModalOpen} 
         onClose={() => setIsAddJobModalOpen(false)}
         onJobAdded={onJobAdded}
       />
       
-      <div className="w-full px-1 sm:px-2 md:px-4 space-y-4 sm:space-y-6 overflow-x-hidden">
+      <div className="w-full space-y-4 sm:space-y-6 overflow-x-hidden">
         {/* Search and Filters */}
         <SearchFilters
           searchQuery={searchQuery}

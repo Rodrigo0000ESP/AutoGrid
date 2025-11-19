@@ -39,10 +39,11 @@ export const ActionButtons: React.FC<ActionButtonsProps> = ({
   return (
     <>
       <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+        {/* Hide view selector on mobile - grid view is auto-selected */}
         <select
           value={mode}
           onChange={(e) => onModeChange(e.target.value as 'table' | 'grid')}
-          className="px-3 py-1.5 text-sm sm:text-base bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="hidden md:block px-3 py-1.5 text-sm sm:text-base bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md w-full sm:w-auto focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="table">Table View</option>
           <option value="grid">Grid View</option>

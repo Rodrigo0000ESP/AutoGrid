@@ -1,5 +1,5 @@
 // API URL para las peticiones al backend
-const API_URL = "http://localhost:8000";
+const API_URL = "https://autogrid.net";
 
 // Known job portals (moved from constants for compatibility)
 const KNOWN_PORTALS = [

@@ -22,7 +22,9 @@ const description = 'Completing your registration...';
     </div>
   </div>
 
-  <script is:inline>
+  <script>
+    const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
+    
     (function () {
       const init = async () => {
         const msg = document.getElementById('verifyMessage');
@@ -38,8 +40,8 @@ const description = 'Completing your registration...';
         }
 
         try {
-          const apiBase = (window?.__ENV__?.PUBLIC_API_URL) || 'http://localhost:8000';
-          const url = `${apiBase.replace(/\/+$/, '')}/auth/verify-email?token=${encodeURIComponent(token)}`;
+          // Use relative URL to let Nginx proxy handle it in production
+          const url = `/auth/verify-email?token=${encodeURIComponent(token)}`;
           const res = await fetch(url);
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data?.detail || 'Verification failed');

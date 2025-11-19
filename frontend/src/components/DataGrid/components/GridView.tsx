@@ -17,7 +17,7 @@ export const GridView: React.FC<GridViewProps> = ({
 }) => {
   if (!jobs || jobs.length === 0) {
     return (
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 p-1 sm:p-2">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 p-1 sm:p-2">
         <div className="col-span-full py-12">
           <div className="flex flex-col items-center justify-center space-y-4 text-center">
             <div className="p-3 bg-blue-50 rounded-full">
@@ -43,9 +43,9 @@ export const GridView: React.FC<GridViewProps> = ({
   }
 
   return (
-    <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 p-1 sm:p-2">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 p-1 sm:p-2">
       {jobs.map((job) => (
-        <div key={job.id} className="bg-white rounded-lg shadow p-3 sm:p-4 hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-blue-100 h-full flex flex-col">
+        <div key={job.id} className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-blue-100 h-full flex flex-col">
           <h3 className="text-sm sm:text-base font-semibold text-gray-900 line-clamp-2 h-10 sm:h-12">{job.position}</h3>
           <p className="text-xs sm:text-sm text-gray-600 font-medium">{job.company}</p>
           
@@ -104,7 +104,7 @@ export const GridView: React.FC<GridViewProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.location.href = `/jobs/${job.id}`;
+                  window.location.href = `/job-details/${job.id}`;
                 }}
                 className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 bg-white text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-md flex items-center transition-colors duration-200"
               >

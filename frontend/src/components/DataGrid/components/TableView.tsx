@@ -19,19 +19,19 @@ export const TableView: React.FC<TableViewProps> = ({
 }) => {
   if (!jobs || jobs.length === 0) {
     return (
-      <div className="bg-white shadow w-full border border-gray-100">
-        <div className="overflow-x-auto -mx-1 sm:mx-0 w-full">
-          <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-xs">
+      <div className="bg-white shadow w-full border border-gray-100 rounded-lg overflow-hidden">
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-full divide-y divide-gray-200 text-xs">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%] min-w-[60px] whitespace-nowrap">Position</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%] min-w-[60px]">Company</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[50px]">Location</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[40px]">Status</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%] min-w-[30px]">Type</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[40%] min-w-[200px]">Description</th>
-                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[50px]">Date</th>
-                <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[7%] min-w-[30px]">Actions</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] whitespace-nowrap">Position</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Company</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Location</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[90px]">Status</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[70px]">Type</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Description</th>
+                <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Date</th>
+                <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -65,19 +65,19 @@ export const TableView: React.FC<TableViewProps> = ({
   }
 
   return (
-    <div className="bg-white shadow w-full border border-gray-100">
-      <div className="overflow-x-auto -mx-1 sm:mx-0 w-full">
-        <table className="min-w-full divide-y divide-gray-200 text-xs sm:text-xs">
+    <div className="bg-white shadow w-full border border-gray-100 rounded-lg overflow-hidden">
+      <div className="overflow-x-auto w-full">
+        <table className="min-w-full divide-y divide-gray-200 text-xs">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%] min-w-[60px] whitespace-nowrap">Position</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[12%] min-w-[60px]">Company</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[50px]">Location</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[40px]">Status</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[5%] min-w-[30px]">Type</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[40%] min-w-[200px]">Description</th>
-              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-[8%] min-w-[50px]">Date</th>
-              <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-[7%] min-w-[30px]">Actions</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] whitespace-nowrap">Position</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">Company</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Location</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[90px]">Status</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[70px]">Type</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[150px]">Description</th>
+              <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Date</th>
+              <th className="px-2 py-1.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[80px]">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -130,7 +130,7 @@ export const TableView: React.FC<TableViewProps> = ({
                 </td>
                 <td className="px-2 py-2 text-center space-x-1">
                   <a 
-                    href={`/jobs/${job.id}`}
+                    href={`/job-details/${job.id}`}
                     className="inline-flex items-center p-0.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded"
                     title="View details"
                   >

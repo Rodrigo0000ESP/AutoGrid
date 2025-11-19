@@ -79,9 +79,8 @@ export const logout = (): void => {
   if (typeof window !== 'undefined') {
     // Remove auth token
     removeAuthToken();
-    
-    // Clear any other user-related data from localStorage if needed
-    // Example: localStorage.removeItem('user_data');
+    localStorage.removeItem('autogrid_consent_accepted');
+    localStorage.removeItem('autogrid_consent_date');
     
     // Force a full page reload to reset the application state
     window.location.href = '/';

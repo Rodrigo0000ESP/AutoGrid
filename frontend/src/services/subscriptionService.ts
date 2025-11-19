@@ -101,21 +101,15 @@ export const getPlans = async () => {
  */
 export async function openBillingPortal(): Promise<{ url: string }> {
   try {
-    // Prefer an explicit portal login URL from env if provided
-    const envUrl = (import.meta as any)?.env?.PUBLIC_STRIPE_PORTAL_LOGIN_URL as string | undefined;
-    if (envUrl) {
-      return { url: envUrl };
+    // Always use the portal URL from env
+    const envUrl = import.meta.env.PUBLIC_STRIPE_PORTAL_LOGIN_URL as string | undefined;
+    if (!envUrl) {
+      throw new Error('Billing portal URL not configured. Please contact support.');
     }
-    const response = await api.post('/api/subscription/portal', {});
-    const url = response?.data?.data?.url;
-    if (!url) throw new Error('No portal URL returned');
-    return { url };
+    return { url: envUrl };
   } catch (error: any) {
-    console.error('Error creating Billing Portal session:', error);
-    if (error.response) {
-      throw new Error(error.response.data?.detail || 'Failed to open Billing Portal.');
-    }
-    throw new Error('Network error while opening Billing Portal.');
+    console.error('Error opening Billing Portal:', error);
+    throw new Error(error.message || 'Failed to open Billing Portal.');
   }
 }
 /**

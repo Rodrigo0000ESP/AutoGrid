@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import { isAuthenticated } from '../services/authService';
 import DataGrid from '../components/DataGrid';
+import ConsentModal from '../components/ConsentModal';
 
 const title = "Dashboard";
 const description = "Your job applications dashboard";
@@ -13,8 +14,11 @@ const description = "Your job applications dashboard";
       <div class="loading">Checking authentication...</div>
     </div>
   </div>
-  <div id="data-grid" class="hidden px-20">
+  <div id="data-grid" class="hidden data-grid-container">
     <DataGrid client:load />
+  </div>
+  <div id="consent-modal-container" class="hidden">
+    <ConsentModal client:load />
   </div>
 
   <script>
@@ -29,8 +33,9 @@ const description = "Your job applications dashboard";
       if (!authContent) return;
       
       try {
-        // Import authService dynamically to ensure it runs on client-side
+        // Import services dynamically to ensure they run on client-side
         const { isAuthenticated } = await import('../services/authService.js');
+        const { consentService } = await import('../services/consentService.js');
         
         const isAuth = isAuthenticated();
         console.log('Auth status:', isAuth);
@@ -42,6 +47,14 @@ const description = "Your job applications dashboard";
             dataGrid.classList.remove('hidden');
             authContent.classList.add('hidden');
             authCheckCompleted = true; // Mark as complete
+
+            // Check if consent modal should be shown (like checking JWT)
+            if (consentService.shouldShowConsentModal()) {
+              const consentContainer = document.getElementById('consent-modal-container');
+              if (consentContainer) {
+                consentContainer.classList.remove('hidden');
+              }
+            } 
           } else {
             console.error('DataGrid container not found');
           }
@@ -108,6 +121,40 @@ const description = "Your job applications dashboard";
   .dashboard-content {
     padding: 1rem;
   }
+  
+  .data-grid-container {
+    padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Responsive padding for DataGrid */
+  @media (min-width: 640px) {
+    .data-grid-container {
+      padding: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    .data-grid-container {
+      padding: 2rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .data-grid-container {
+      padding: 3rem;
+      padding-top: 2rem;
+    }
+  }
+  
+  @media (min-width: 1280px) {
+    .data-grid-container {
+      padding: 5rem;
+      padding-top: 2rem;
+    }
+  }
+  
   .hidden {
     display: none;
   }

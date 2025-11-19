@@ -13,13 +13,13 @@ const STRIPE_PRICE_ID_UNLIMITED = import.meta.env.STRIPE_PRICE_ID_UNLIMITED;
 
 <!-- Client-side script for handling Stripe Checkout -->
 <script>
+  import { isAuthenticated } from '../services/authService';
+  
   // This will only run in the browser
   if (import.meta.env.PUBLIC_STRIPE_PUBLIC_KEY) {
     // Centralized auth check
     const isLoggedIn = async () => {
       try {
-        // @ts-ignore - Vite runtime path is valid in browser
-        const { isAuthenticated } = await import('/src/services/authService.ts');
         return isAuthenticated();
       } catch (e) {
         console.error('Error importing isAuthenticated:', e);

@@ -99,16 +99,14 @@ import '../styles/global.css';
     </div>
   </div>
 
-  <script is:inline>
-    // Use module script to import our email service
+  <script>
+    import { sendSupportMessage } from '../services/emailService';
+    
     (function() {
       const init = async () => {
         const form = document.getElementById('supportForm');
         const formSuccess = document.getElementById('formSuccess');
         if (!form) return;
-
-        // Dynamically import to ensure Astro bundles it
-        const { sendSupportMessage } = await import('/src/services/emailService.ts');
 
         form.addEventListener('submit', async (e) => {
           e.preventDefault();
