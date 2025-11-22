@@ -3,6 +3,8 @@ import Layout from '../layouts/Layout.astro';
 import FAQ from '../components/FAQ.astro';
 import '../styles/global.css';
 
+const chromeExtensionUrl = import.meta.env.PUBLIC_CHROME_EXTENSION_URL || 'https://chromewebstore.google.com/detail/autogrid-job-saver/pnjapkdlcfjednmcakdmgpcaibejfbme?authuser=0&hl=es';
+
 const faqItems = [
   {
     id: 'free-tier',
@@ -50,7 +52,7 @@ const faqItems = [
               </p>
               <div class="mt-4 flex items-center space-x-4">
                 <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>
-                <a href="/get-extension" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
+                <a href={chromeExtensionUrl} target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">
                   Get the Extension
                 </a>
                 <div class="flex-1 border-t-2 border-dashed border-gray-300"></div>

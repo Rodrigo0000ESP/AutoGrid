@@ -5,8 +5,7 @@
   "description": "Save Offers with just one click",
   "permissions": [
     "activeTab",
-    "scripting",
-    "storage"
+    "scripting"
   ],
   "host_permissions": [
     "https://autogrid.net/*",

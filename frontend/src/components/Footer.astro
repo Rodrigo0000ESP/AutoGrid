@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+
+const chromeExtensionUrl = import.meta.env.PUBLIC_CHROME_EXTENSION_URL || 'https://chromewebstore.google.com/detail/autogrid-job-saver/pnjapkdlcfjednmcakdmgpcaibejfbme?authuser=0&hl=es';
 ---
 
 <footer class="bg-gray-900 text-gray-300 pt-16 pb-8">
@@ -45,7 +47,7 @@ import "../styles/global.css";
           <h3 class="text-white font-semibold text-lg mb-4">Product</h3>
           <ul class="space-y-3">
             <li><a href="/" class="text-gray-400 hover:text-white transition-colors">Features</a></li>
-            <li><a href="#" class="text-gray-400 hover:text-white transition-colors">Chrome Extension</a></li>
+            <li><a href={chromeExtensionUrl} target="_blank" rel="noopener noreferrer" class="text-gray-400 hover:text-white transition-colors">Chrome Extension</a></li>
             <li><a href="/pricing" class="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
             <li><a href="/how-it-works" class="text-gray-400 hover:text-white transition-colors">Roadmap</a></li>
           </ul>
