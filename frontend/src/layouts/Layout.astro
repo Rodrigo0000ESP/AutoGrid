@@ -4,7 +4,10 @@ import '../styles/global.css';
 import Header from '../components/header.astro';
 import AuthHeader from '../components/header_auth.astro';
 
-const { title = 'AutoGrid', description = 'Save job postings with one click and organize your job search.' } = Astro.props;
+const { 
+  title = 'AutoGrid - Job Tracker', 
+  description = 'Job tracker to save and organize job postings with one click. Track your job applications efficiently.' 
+} = Astro.props;
 ---
 
 <!DOCTYPE html>
@@ -13,7 +16,13 @@ const { title = 'AutoGrid', description = 'Save job postings with one click and 
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    <meta name="keywords" content="job tracker, job application tracker, job search organizer, save jobs" />
     <title>{title}</title>
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
