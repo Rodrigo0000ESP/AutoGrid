@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /plan_details
+Disallow: /dev/
+
+Sitemap: https://autogrid.com/sitemap.xml
